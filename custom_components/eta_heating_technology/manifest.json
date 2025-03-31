@@ -1,0 +1,12 @@
+{
+  "domain": "eta_heating_technology",
+  "name": "ETA Heating Technology Integration",
+  "codeowners": [
+    "@meraxa"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/Meraxa/home-assistant-eta-integration",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/Meraxa/home-assistant-eta-integration/issues",
+  "version": "0.1.0"
+}
