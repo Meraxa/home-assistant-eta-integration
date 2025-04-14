@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import socket
-from typing import Any
 
 import aiohttp
 import async_timeout
+import xmltodict
 
 
 class EtaApiClientError(Exception):
@@ -40,30 +40,64 @@ class EtaApiClient:
 
     def __init__(
         self,
-        username: str,
-        password: str,
+        host: str,
+        port: str,
         session: aiohttp.ClientSession,
     ) -> None:
         """Sample API Client."""
-        self._username = username
-        self._password = password
+        self._host = host
+        self._port = port
         self._session = session
 
-    async def async_get_data(self) -> Any:
-        """Get data from the API."""
-        return await self._api_wrapper(
+        self._float_sensor_units = [
+            "%",
+            "A",
+            "Hz",
+            "Ohm",
+            "Pa",
+            "U/min",
+            "V",
+            "W",
+            "W/m²",
+            "bar",
+            "kW",
+            "kWh",
+            "kg",
+            "l",
+            "l/min",
+            "mV",
+            "m²",
+            "s",
+            "°C",
+            "%rH",
+        ]
+
+    def build_endpoint_url(self, endpoint: str) -> str:
+        return "http://" + self._host + ":" + str(self._port) + endpoint
+
+    async def does_endpoint_exists(self) -> bool:
+        """
+        Check if the ETA API is reachable and if the API version is correct.
+
+        This is done by sending a request to the /user/api endpoint.
+
+        Returns:
+            bool: True, if the endpoint is reachable and correct api version,
+            otherwise False.
+
+        """
+        resp = await self._api_wrapper(
             method="get",
-            url="https://jsonplaceholder.typicode.com/posts/1",
+            url=self.build_endpoint_url("/user/api"),
         )
 
-    async def async_set_title(self, value: str) -> Any:
-        """Get data from the API."""
-        return await self._api_wrapper(
-            method="patch",
-            url="https://jsonplaceholder.typicode.com/posts/1",
-            data={"title": value},
-            headers={"Content-type": "application/json; charset=UTF-8"},
-        )
+        if resp.status != 200:
+            return False
+
+        # Check if the response is valid XML
+        parsed_response = xmltodict.parse(await resp.text())
+        api_version = parsed_response["eta"]["api"]["@version"]
+        return api_version == "1.2"
 
     async def _api_wrapper(
         self,
@@ -71,7 +105,7 @@ class EtaApiClient:
         url: str,
         data: dict | None = None,
         headers: dict | None = None,
-    ) -> Any:
+    ) -> aiohttp.ClientResponse:
         """Get information from the API."""
         try:
             async with async_timeout.timeout(10):
@@ -82,7 +116,7 @@ class EtaApiClient:
                     json=data,
                 )
                 _verify_response_or_raise(response)
-                return await response.json()
+                return response
 
         except TimeoutError as exception:
             msg = f"Timeout error fetching information - {exception}"
