@@ -6,16 +6,18 @@ https://github.com/Meraxa/home-assistant-eta-integration
 """
 
 from __future__ import annotations
+import re
+from homeassistant.helpers.device_registry import DeviceInfo
 
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
+from homeassistant.const import Platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
 from .api import EtaApiClient
-from .const import DOMAIN, LOGGER
+from .const import CONF_HOST, CONF_PORT, DOMAIN, LOGGER
 from .coordinator import EtaDataUpdateCoordinator
 from .data import EtaData
 
@@ -26,8 +28,8 @@ if TYPE_CHECKING:
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
-    Platform.BINARY_SENSOR,
-    Platform.SWITCH,
+    # Platform.BINARY_SENSOR,
+    # Platform.SWITCH,
 ]
 
 
@@ -41,16 +43,25 @@ async def async_setup_entry(
         hass=hass,
         logger=LOGGER,
         name=DOMAIN,
-        update_interval=timedelta(hours=1),
+        update_interval=timedelta(minutes=1),
     )
     entry.runtime_data = EtaData(
         client=EtaApiClient(
-            username=entry.data[CONF_USERNAME],
-            password=entry.data[CONF_PASSWORD],
+            host=entry.data[CONF_HOST],
+            port=entry.data[CONF_PORT],
             session=async_get_clientsession(hass),
         ),
         integration=async_get_loaded_integration(hass, entry.domain),
         coordinator=coordinator,
+    )
+    hass.data.setdefault(DOMAIN, {})
+    hass_data = dict(entry.data)
+    hass.data[DOMAIN][entry.entry_id] = hass_data
+    hass.data[DOMAIN][entry.entry_id]["device_info"] = DeviceInfo(
+        configuration_url=entry.data[CONF_HOST],
+        identifiers={(DOMAIN, entry.entry_id)},
+        manufacturer="ETA Heiztechnik GmbH",
+        name=f"IP: {entry.data[CONF_HOST]}",
     )
 
     # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
@@ -67,7 +78,12 @@ async def async_unload_entry(
     entry: EtaConfigEntry,
 ) -> bool:
     """Handle removal of an entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        data: dict = hass.data[DOMAIN]
+        data.pop(entry.entry_id)
+
+    return unload_ok
 
 
 async def async_reload_entry(

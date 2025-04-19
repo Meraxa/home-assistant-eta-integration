@@ -73,6 +73,7 @@ class EtaApiClient:
         ]
 
     def build_endpoint_url(self, endpoint: str) -> str:
+        """Build the endpoint URL."""
         return "http://" + self._host + ":" + str(self._port) + endpoint
 
     async def does_endpoint_exists(self) -> bool:
@@ -98,6 +99,64 @@ class EtaApiClient:
         parsed_response = xmltodict.parse(await resp.text())
         api_version = parsed_response["eta"]["api"]["@version"]
         return api_version == "1.2"
+
+    def evaluate_xml_dict(self, xml_dict, uri_dict, prefix=""):
+        if type(xml_dict) is list:
+            for child in xml_dict:
+                self.evaluate_xml_dict(child, uri_dict, prefix)
+        elif "object" in xml_dict:
+            child = xml_dict["object"]
+            new_prefix = f"{prefix} {xml_dict['@name']}"
+            # add parent to uri_dict and evaluate childs then
+            uri_dict[f"{prefix} {xml_dict['@name']}".strip()] = xml_dict["@uri"]
+            self.evaluate_xml_dict(child, uri_dict, new_prefix)
+        else:
+            uri_dict[f"{prefix} {xml_dict['@name']}".strip()] = xml_dict["@uri"]
+
+    def _parse_data(self, data):
+        unit = data["@unit"]
+        if unit in self._float_sensor_units:
+            scale_factor = int(data["@scaleFactor"])
+            decimal_places = int(data["@decPlaces"])
+            raw_value = float(data["#text"])
+            value = raw_value / scale_factor
+            # value = round(value, decimal_places)
+        else:
+            # use default text string representation for values that cannot be parsed properly
+            value = data["@strValue"]
+        return value, unit
+
+    async def async_get_data(self, url: str):
+        data = await self._api_wrapper(
+            method="get", url=self.build_endpoint_url(endpoint=f"/user/var/{url}")
+        )
+        text = await data.text()
+        data = xmltodict.parse(text)["eta"]["value"]
+        return self._parse_data(data)
+
+    async def async_get_value_unit(self, url: str):
+        """Get the value and unit of a sensor."""
+        data = await self._api_wrapper(
+            method="get", url=self.build_endpoint_url(endpoint=f"/user/var/{url}")
+        )
+        text = await data.text()
+        data = xmltodict.parse(text)["eta"]["value"]["@unit"]
+        return data
+
+    async def get_raw_sensor_dict(self):
+        data = await self._api_wrapper(
+            method="get", url=self.build_endpoint_url(endpoint="/user/menu")
+        )
+        text = await data.text()
+        data = xmltodict.parse(text)
+        raw_dict = data["eta"]["menu"]["fub"]
+        return raw_dict
+
+    async def get_sensors_dict(self):
+        raw_dict = await self.get_raw_sensor_dict()
+        uri_dict = {}
+        self.evaluate_xml_dict(raw_dict, uri_dict)
+        return uri_dict
 
     async def _api_wrapper(
         self,
