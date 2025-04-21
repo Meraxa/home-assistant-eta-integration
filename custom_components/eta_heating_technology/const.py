@@ -12,7 +12,5 @@ ISSUE_URL = "https://github.com/meraxa/home-assistant_eta_integration/issues"
 CONF_HOST = "host"
 CONF_PORT = "port"
 
-SENSORS_DICT = "SENSORS_DICT"
+DISCOVERED_ENTITIES = "discovered_entities"
 CHOSEN_ENTITIES = "chosen_entities"
-
-ATTRIBUTION = "Data provided by http://jsonplaceholder.typicode.com/"

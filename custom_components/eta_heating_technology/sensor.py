@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
-from re import L
 from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor import (
@@ -12,12 +10,10 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 
-from custom_components.eta_heating_technology.api import EtaApiClient
 from custom_components.eta_heating_technology.const import (
     CHOSEN_ENTITIES,
-    DOMAIN,
+    DISCOVERED_ENTITIES,
     LOGGER,
-    SENSORS_DICT,
 )
 
 from .entity import EtaEntity
@@ -26,11 +22,14 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+    from custom_components.eta_heating_technology.api import EtaApiClient
+
     from .coordinator import EtaDataUpdateCoordinator
     from .data import EtaConfigEntry
 
 
-def determine_device_class(unit):
+def determine_sensor_device_class(unit: str) -> SensorDeviceClass | None:
+    """Determine the SensorDeviceClass of the sensor based on the unit string."""
     unit_dict_eta = {
         "°C": SensorDeviceClass.TEMPERATURE,
         "W": SensorDeviceClass.POWER,
@@ -46,6 +45,7 @@ def determine_device_class(unit):
         "mV": SensorDeviceClass.VOLTAGE,
         "s": SensorDeviceClass.DURATION,
         "%rH": SensorDeviceClass.HUMIDITY,
+        "m³/h": SensorDeviceClass.VOLUME_FLOW_RATE,
     }
 
     if unit in unit_dict_eta:
@@ -53,48 +53,32 @@ def determine_device_class(unit):
     return None
 
 
-def determine_precision(unit):
-    """Determine the precision of the value based on the unit."""
-    if unit in ["°C"]:
-        return 1
-    return 0
-
-
 async def async_setup_entry(
-    hass: HomeAssistant,  # noqa: ARG001 Unused function argument: `hass`
-    entry: EtaConfigEntry,
+    hass: HomeAssistant,
+    config_entry: EtaConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-
-    config = hass.data[DOMAIN][entry.entry_id]
-    LOGGER.info("Config entry data: %s", config)
-    sensors: list[str] = config[CHOSEN_ENTITIES]
-    LOGGER.info("Sensors: %s", sensors)
+    sensor_keys: list[str] = config_entry.data[CHOSEN_ENTITIES]
+    LOGGER.info("sensor_keys: %s", sensor_keys)
 
     eta_sensors: list[EtaSensor] = []
-    for sensor in sensors:
-        sensor_url = config[SENSORS_DICT][sensor]
-        sensor_name = sensor
-        sensor_key = sensor.lower().replace(" ", "_")
+    for sensor_key in sensor_keys:
+        sensor_url = config_entry.data[DISCOVERED_ENTITIES][sensor_key]["url"]
+        sensor_name = config_entry.data[DISCOVERED_ENTITIES][sensor_key]["name"]
 
-        # Add the sensor endpoint to the coordinator
-        entry.runtime_data.coordinator.sensor_endpoints[sensor_key] = sensor_url
-
-        api_client = entry.runtime_data.client
+        api_client = config_entry.runtime_data.client
         sensor_unit = await api_client.async_get_value_unit(sensor_url)
 
         e = EtaSensor(
-            coordinator=entry.runtime_data.coordinator,
+            coordinator=config_entry.runtime_data.coordinator,
             api_client=api_client,
             entity_description=SensorEntityDescription(
                 key=sensor_key,
                 name=sensor_name,
-                device_class=determine_device_class(sensor_unit),
-                native_unit_of_measurement=sensor_unit,
-                suggested_display_precision=determine_precision(sensor_unit),
+                device_class=determine_sensor_device_class(sensor_unit),
             ),
-            config_entry_id=entry.entry_id,
+            config_entry_id=config_entry.entry_id,
             url=sensor_url,
         )
         eta_sensors.append(e)
@@ -115,13 +99,20 @@ class EtaSensor(EtaEntity, SensorEntity):
     ) -> None:
         """Initialize the sensor class."""
         super().__init__(coordinator)
+        # Add the config entry id to the unique id to avoid conflicts with
+        # multiple eta installations
         self._attr_unique_id = f"{config_entry_id}-{entity_description.key}"
         self.entity_description = entity_description
         self.url = url
         self.api_client = api_client
+        self.coordinator = coordinator
 
     @property
     def native_value(self) -> str | None:
         """Return the native value of the sensor."""
-        LOGGER.info("Calling native_value for: %s", self.entity_description.key)
+        LOGGER.info(
+            "Calling native_value for: %s with _attr_unique_id: %s",
+            self.entity_description.key,
+            self._attr_unique_id,
+        )
         return self.coordinator.data.get(self.entity_description.key)

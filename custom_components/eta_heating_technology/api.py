@@ -70,6 +70,7 @@ class EtaApiClient:
             "s",
             "°C",
             "%rH",
+            "m³/h",
         ]
 
     def build_endpoint_url(self, endpoint: str) -> str:
@@ -108,19 +109,25 @@ class EtaApiClient:
             child = xml_dict["object"]
             new_prefix = f"{prefix} {xml_dict['@name']}"
             # add parent to uri_dict and evaluate childs then
-            uri_dict[f"{prefix} {xml_dict['@name']}".strip()] = xml_dict["@uri"]
+            key = f"{prefix} {xml_dict['@name']}".strip().lower().replace(" ", "_")
+            uri_dict[key] = {
+                "url": xml_dict["@uri"],
+                "name": f"{prefix} {xml_dict['@name']}".strip(),
+            }
             self.evaluate_xml_dict(child, uri_dict, new_prefix)
         else:
-            uri_dict[f"{prefix} {xml_dict['@name']}".strip()] = xml_dict["@uri"]
+            key = f"{prefix} {xml_dict['@name']}".strip().lower().replace(" ", "_")
+            uri_dict[key] = {
+                "url": xml_dict["@uri"],
+                "name": f"{prefix} {xml_dict['@name']}".strip(),
+            }
 
     def _parse_data(self, data):
         unit = data["@unit"]
         if unit in self._float_sensor_units:
             scale_factor = int(data["@scaleFactor"])
-            decimal_places = int(data["@decPlaces"])
             raw_value = float(data["#text"])
             value = raw_value / scale_factor
-            # value = round(value, decimal_places)
         else:
             # use default text string representation for values that cannot be parsed properly
             value = data["@strValue"]

@@ -6,9 +6,8 @@ https://github.com/Meraxa/home-assistant-eta-integration
 """
 
 from __future__ import annotations
-import re
-from homeassistant.helpers.device_registry import DeviceInfo
 
+import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -26,17 +25,15 @@ if TYPE_CHECKING:
 
     from .data import EtaConfigEntry
 
-PLATFORMS: list[Platform] = [
-    Platform.SENSOR,
-    # Platform.BINARY_SENSOR,
-    # Platform.SWITCH,
-]
+_LOGGER = logging.getLogger(__name__)
+
+PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
 # https://developers.home-assistant.io/docs/config_entries_index/#setting-up-an-entry
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: EtaConfigEntry,
+    config_entry: EtaConfigEntry,
 ) -> bool:
     """Set up this integration using UI."""
     coordinator = EtaDataUpdateCoordinator(
@@ -44,52 +41,48 @@ async def async_setup_entry(
         logger=LOGGER,
         name=DOMAIN,
         update_interval=timedelta(minutes=1),
+        config_entry=config_entry,
     )
-    entry.runtime_data = EtaData(
+    config_entry.runtime_data = EtaData(
         client=EtaApiClient(
-            host=entry.data[CONF_HOST],
-            port=entry.data[CONF_PORT],
+            host=config_entry.data[CONF_HOST],
+            port=config_entry.data[CONF_PORT],
             session=async_get_clientsession(hass),
         ),
-        integration=async_get_loaded_integration(hass, entry.domain),
+        integration=async_get_loaded_integration(hass, config_entry.domain),
         coordinator=coordinator,
     )
-    hass.data.setdefault(DOMAIN, {})
-    hass_data = dict(entry.data)
-    hass.data[DOMAIN][entry.entry_id] = hass_data
-    hass.data[DOMAIN][entry.entry_id]["device_info"] = DeviceInfo(
-        configuration_url=entry.data[CONF_HOST],
-        identifiers={(DOMAIN, entry.entry_id)},
-        manufacturer="ETA Heiztechnik GmbH",
-        name=f"IP: {entry.data[CONF_HOST]}",
-    )
+
+    _LOGGER.info("Config entry data keys: %s", config_entry.data.keys())
 
     # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
     await coordinator.async_config_entry_first_refresh()
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    # Forward the Config Entry set up to the platforms
+    await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
+    config_entry.async_on_unload(config_entry.add_update_listener(async_reload_entry))
 
     return True
 
 
 async def async_unload_entry(
     hass: HomeAssistant,
-    entry: EtaConfigEntry,
+    config_entry: EtaConfigEntry,
 ) -> bool:
     """Handle removal of an entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        config_entry, PLATFORMS
+    )
     if unload_ok:
-        data: dict = hass.data[DOMAIN]
-        data.pop(entry.entry_id)
+        _LOGGER.info("Unloading of config entry %s successful.", config_entry.entry_id)
 
     return unload_ok
 
 
 async def async_reload_entry(
     hass: HomeAssistant,
-    entry: EtaConfigEntry,
+    config_entry: EtaConfigEntry,
 ) -> None:
     """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+    await async_unload_entry(hass, config_entry)
+    await async_setup_entry(hass, config_entry)
