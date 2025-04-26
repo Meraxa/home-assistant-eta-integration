@@ -8,6 +8,8 @@ import aiohttp
 import async_timeout
 import xmltodict
 
+from custom_components.eta_heating_technology.const import ETA_SENSOR_UNITS
+
 
 class EtaApiClientError(Exception):
     """Exception to indicate a general API error."""
@@ -48,30 +50,6 @@ class EtaApiClient:
         self._host = host
         self._port = port
         self._session = session
-
-        self._float_sensor_units = [
-            "%",
-            "A",
-            "Hz",
-            "Ohm",
-            "Pa",
-            "U/min",
-            "V",
-            "W",
-            "W/m²",
-            "bar",
-            "kW",
-            "kWh",
-            "kg",
-            "l",
-            "l/min",
-            "mV",
-            "m²",
-            "s",
-            "°C",
-            "%rH",
-            "m³/h",
-        ]
 
     def build_endpoint_url(self, endpoint: str) -> str:
         """Build the endpoint URL."""
@@ -124,7 +102,7 @@ class EtaApiClient:
 
     def _parse_data(self, data):
         unit = data["@unit"]
-        if unit in self._float_sensor_units:
+        if unit in ETA_SENSOR_UNITS:
             scale_factor = int(data["@scaleFactor"])
             raw_value = float(data["#text"])
             value = raw_value / scale_factor
