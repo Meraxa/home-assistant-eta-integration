@@ -17,7 +17,6 @@ from .const import (
     CHOSEN_ENTITIES,
     CONF_HOST,
     CONF_PORT,
-    DISCOVERED_ENTITIES,
     DOMAIN,
 )
 
@@ -102,7 +101,6 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
         """Second step in config flow to add a repo to watch."""
-
         if self.configuration_flow_data.discovered_entities is None:
             raise EtaApiClientError("No discovered entities found")
         menu = self.configuration_flow_data.discovered_entities.menu

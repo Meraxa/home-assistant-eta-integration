@@ -16,7 +16,6 @@ from homeassistant.components.sensor import (
 from custom_components.eta_heating_technology.api import Object, Value
 from custom_components.eta_heating_technology.const import (
     CHOSEN_ENTITIES,
-    DISCOVERED_ENTITIES,
     ETA_BINARY_SENSOR_UNITS_DE,
     ETA_SENSOR_UNITS,
     LOGGER,
@@ -32,6 +31,10 @@ if TYPE_CHECKING:
 
     from .coordinator import EtaDataUpdateCoordinator
     from .data import EtaConfigEntry
+
+
+class ValueNoneError(Exception):
+    """Exception indicating that a sensor value was `None`."""
 
 
 async def async_setup_entry(
@@ -111,8 +114,14 @@ class EtaSensor(EtaEntity, SensorEntity):
             self._attr_unique_id,
         )
         value: Value | None = self.coordinator.data.get(self.entity_description.key)
-        assert value is not None
-        return value.scaled_value
+        if value is not None:
+            return value.scaled_value
+        msg = (
+            f"Calling native_value for: {self.entity_description.key} with "
+            f"_attr_unique_id: {self._attr_unique_id} failed because the returned "
+            "value was `None`."
+        )
+        raise ValueNoneError(msg)
 
 
 class EtaBinarySensor(EtaEntity, BinarySensorEntity):
@@ -146,5 +155,19 @@ class EtaBinarySensor(EtaEntity, BinarySensorEntity):
         )
         # Translate the value to a boolean
         value: Value | None = self.coordinator.data.get(self.entity_description.key)
-        assert value is not None
-        return ETA_BINARY_SENSOR_UNITS_DE.get(str(value), False)
+        if value is None:
+            msg = (
+                f"Calling native_value for: {self.entity_description.key} with "
+                f"_attr_unique_id: {self._attr_unique_id} failed because the returned "
+                "value was `None`."
+            )
+            raise ValueNoneError(msg)
+        str_value = ETA_BINARY_SENSOR_UNITS_DE.get(str(value), None)
+        if str_value is None:
+            msg = (
+                f"Calling native_value for: {self.entity_description.key} with "
+                f"_attr_unique_id: {self._attr_unique_id} failed because the returned "
+                "value was `None`."
+            )
+            raise ValueNoneError(msg)
+        return str_value

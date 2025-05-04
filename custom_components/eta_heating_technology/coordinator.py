@@ -10,7 +10,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from custom_components.eta_heating_technology.const import (
     CHOSEN_ENTITIES,
-    DISCOVERED_ENTITIES,
 )
 
 from .api import (
@@ -45,8 +44,9 @@ class EtaDataUpdateCoordinator(DataUpdateCoordinator):
                     obj.uri
                 )
                 data[obj.full_name] = value
-            return data
         except EtaApiClientAuthenticationError as exception:
             raise ConfigEntryAuthFailed(exception) from exception
         except EtaApiClientError as exception:
             raise UpdateFailed(exception) from exception
+        else:
+            return data

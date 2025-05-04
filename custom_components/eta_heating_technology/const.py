@@ -1,14 +1,13 @@
 """Constants for ETA heating technology."""
 
-from enum import Enum
 from logging import Logger, getLogger
-from typing import Literal
 
 from homeassistant.components.sensor import SensorDeviceClass
 
 LOGGER: Logger = getLogger(__package__)
 
 NAME = "ETA Heating Technology"
+DEVICE_NAME = "ETA Heating"
 DOMAIN = "eta_heating_technology"
 ISSUE_URL = "https://github.com/meraxa/home-assistant_eta_integration/issues"
 
@@ -16,7 +15,6 @@ ISSUE_URL = "https://github.com/meraxa/home-assistant_eta_integration/issues"
 CONF_HOST = "host"
 CONF_PORT = "port"
 
-DISCOVERED_ENTITIES = "discovered_entities"
 CHOSEN_ENTITIES = "chosen_entities"
 
 ETA_SENSOR_UNITS = {

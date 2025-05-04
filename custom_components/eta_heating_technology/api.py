@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import socket
-from typing import List, Literal, Optional
+from typing import Literal
 
 import aiohttp
 import async_timeout
@@ -43,32 +43,41 @@ def sanitize_input(input_string: str) -> str:
     """
     Sanitize the input string by removing unwanted characters.
 
+    Sanitization is necessary to avoid conflicts with the namespaces
+    of the ETA values. Therefore removing the characters "." and "-" from
+    any input string.
+
     Args:
         input_string (str): The input string to sanitize.
 
     Returns:
         str: The sanitized string.
+
     """
-    # Remove unwanted characters
-    sanitized_string = input_string.replace(".", "").replace("-", " ")
-    return sanitized_string
+    return input_string.replace(".", "").replace("-", " ")
 
 
 class Object(BaseXmlModel):
+    """
+    Represents the xml element `<object ...>` returned by the ETA heating systems api.
+
+    E.g. `<object uri="/120/10601/0/11328/0" name="Fühler 2" />`.
+    """
+
     uri: str = attr(name="uri")
     name: str = attr(name="name")
 
     @property
     def sanitized_name(self) -> str:
-        """Sanitize the name field."""
+        """Sanitized name field."""
         return sanitize_input(self.name)
 
     full_name: str = ""
-    namespace: Optional[str] = None
-    objects: List[Object] = element(tag="object", default=[])
+    namespace: str | None = None
+    objects: list[Object] = element(tag="object", default=[])
 
     def update_namespace(self, namespace: str) -> None:
-        """Update the namespace of the object."""
+        """Update the namespace of the current object and its child objects."""
         self.namespace = namespace
         self.full_name = f"{namespace}.{self.sanitized_name}"
         if self.objects:
@@ -88,15 +97,21 @@ class Object(BaseXmlModel):
 
 
 class Fub(BaseXmlModel):
+    """
+    Represents the xml element `<fub ...>` returned by the ETA heating systems api.
+
+    E.g. `<fub uri="/24/10561" name="Kessel">`.
+    """
+
     uri: str = attr(name="uri")
     name: str = attr(name="name")
 
     @property
     def sanitized_name(self) -> str:
-        """Sanitize the name field."""
+        """Sanitized name field."""
         return sanitize_input(self.name)
 
-    objects: List[Object] = element(tag="object", default=[])
+    objects: list[Object] = element(tag="object", default=[])
 
     def model_post_init(self, __context) -> None:
         """Automatically update namespace after model creation."""
@@ -117,8 +132,14 @@ class Fub(BaseXmlModel):
 
 
 class Menu(BaseXmlModel):
+    """
+    Represents the xml element `<menu ...>` returned by the ETA heating systems api.
+
+    E.g. `<menu uri="/user/menu">`.
+    """
+
     uri: str = attr(name="uri")
-    fubs: List[Fub] = element(tag="fub", default=[])
+    fubs: list[Fub] = element(tag="fub", default=[])
 
     def as_dict(self) -> dict:
         """Convert the object to a dictionary."""
@@ -129,6 +150,12 @@ class Menu(BaseXmlModel):
 
 
 class Error(BaseXmlModel):
+    """
+    Represents the xml element `<error ...>` returned by the ETA heating systems api.
+
+    E.g. `<error uri="/user/var/24/10561/0/11109/1">Invalid permission</error>`.
+    """
+
     uri: str = attr(name="uri")
     error_message: str
 
@@ -141,6 +168,12 @@ class Error(BaseXmlModel):
 
 
 class Api(BaseXmlModel):
+    """
+    Represents the xml element `<api ...>` returned by the ETA heating systems api.
+
+    E.g. `<api version="1.2" uri="/user/api"/>`.
+    """
+
     version: str = attr(name="version")
     uri: str = attr(name="uri")
 
@@ -154,10 +187,12 @@ class Api(BaseXmlModel):
 
 class Value(BaseXmlModel):
     """
-    Value class to represent the value of an object.
+    Represents the xml element `<value ...>` returned by the ETA heating systems api.
 
-    Every <object> can be fetched with the /user/var/<uri> endpoint and
-    thus is represented by the Value class.
+    E.g. `<value advTextOffset="0" unit="°C" uri="/user/var/24/10561/0/11109/0" strValue="20" scaleFactor="10" decPlaces="0">199</value>`.
+
+    Every <object> can be fetched with the /user/var/<uri> endpoint and thus is
+    represented by the Value class.
     """
 
     value: str
@@ -187,7 +222,7 @@ class Value(BaseXmlModel):
 
     @property
     def scaled_value(self) -> str:
-        """Sanitize the name field."""
+        """Value scaled by the scale factor."""
         if self.unit != "":
             return str(float(self.value) / float(self.scale_factor))
         return self.unit
@@ -206,11 +241,17 @@ class Value(BaseXmlModel):
 
 
 class Eta(BaseXmlModel, tag="eta"):
+    """
+    Represents the xml element `<eta ...>` returned by the ETA heating systems api.
+
+    E.g. `<eta xmlns="http://www.eta.co.at/rest/v1" version="1.0">`.
+    """
+
     version: str = attr(name="version")
-    api: Optional[Api] = element(tag="api", default=None)
-    value: Optional[Value] = element(tag="value", default=None)
-    menu: Optional[Menu] = element(tag="menu", default=None)
-    error: Optional[Error] = element(tag="error", default=None)
+    api: Api | None = element(tag="api", default=None)
+    value: Value | None = element(tag="value", default=None)
+    menu: Menu | None = element(tag="menu", default=None)
+    error: Error | None = element(tag="error", default=None)
 
     def as_dict(self) -> dict:
         """Convert the object to a dictionary."""
@@ -224,7 +265,7 @@ class Eta(BaseXmlModel, tag="eta"):
 
 
 class EtaApiClient:
-    """Sample API Client."""
+    """Api Client for operations against the ETA api endpoint."""
 
     def __init__(
         self,
@@ -232,7 +273,6 @@ class EtaApiClient:
         port: str,
         session: aiohttp.ClientSession,
     ) -> None:
-        """Sample API Client."""
         self._host = host
         self._port = port
         self._session = session
@@ -271,6 +311,7 @@ class EtaApiClient:
         return eta.api.version == "1.2"
 
     async def async_get_data(self, url: str) -> Value:
+        """Get a value from the ETA api endpoint."""
         data = await self._api_wrapper(
             method="get", url=self.build_endpoint_url(endpoint=f"/user/var/{url}")
         )
@@ -281,14 +322,14 @@ class EtaApiClient:
             raise EtaApiClientError("No value found in response")
         return eta.value
 
-    async def async_parse_menu(self):
+    async def async_parse_menu(self) -> Eta:
+        """Get the xml menu listing from the ETA api and parse it to a datastructure."""
         data = await self._api_wrapper(
             method="get", url=self.build_endpoint_url(endpoint="/user/menu")
         )
         text = await data.text()
         text = text.replace('xmlns="http://www.eta.co.at/rest/v1"', "")
-        eta = Eta.from_xml(text)
-        return eta
+        return Eta.from_xml(text)
 
     async def _api_wrapper(
         self,

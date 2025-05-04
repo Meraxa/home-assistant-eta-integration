@@ -17,7 +17,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
 from .api import EtaApiClient
-from .const import CONF_HOST, CONF_PORT, DOMAIN, LOGGER
+from .const import CONF_HOST, CONF_PORT, DEVICE_NAME, DOMAIN, LOGGER, NAME
 from .coordinator import EtaDataUpdateCoordinator
 from .data import EtaData
 
@@ -54,13 +54,13 @@ async def async_setup_entry(
         coordinator=coordinator,
     )
 
+    # Add the device to the device registry to configure additional values
     device_registry = dr.async_get(hass)
-
     device_registry.async_get_or_create(
         config_entry_id=config_entry.entry_id,
         identifiers={(DOMAIN, config_entry.entry_id)},
-        manufacturer="Eta Heating Technology",
-        name="Eta Heating System",
+        manufacturer=NAME,
+        name=DEVICE_NAME,
     )
 
     _LOGGER.info("Config entry data keys: %s", config_entry.data.keys())
