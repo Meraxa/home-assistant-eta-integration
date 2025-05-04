@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import socket
+from typing import List, Literal, Optional
 
 import aiohttp
 import async_timeout
-import xmltodict
+from pydantic_xml import BaseXmlModel, attr, element
 
-from custom_components.eta_heating_technology.const import ETA_SENSOR_UNITS
+_LOGGER = logging.getLogger(__name__)
 
 
 class EtaApiClientError(Exception):
@@ -37,6 +39,190 @@ def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
     response.raise_for_status()
 
 
+def sanitize_input(input_string: str) -> str:
+    """
+    Sanitize the input string by removing unwanted characters.
+
+    Args:
+        input_string (str): The input string to sanitize.
+
+    Returns:
+        str: The sanitized string.
+    """
+    # Remove unwanted characters
+    sanitized_string = input_string.replace(".", "").replace("-", " ")
+    return sanitized_string
+
+
+class Object(BaseXmlModel):
+    uri: str = attr(name="uri")
+    name: str = attr(name="name")
+
+    @property
+    def sanitized_name(self) -> str:
+        """Sanitize the name field."""
+        return sanitize_input(self.name)
+
+    full_name: str = ""
+    namespace: Optional[str] = None
+    objects: List[Object] = element(tag="object", default=[])
+
+    def update_namespace(self, namespace: str) -> None:
+        """Update the namespace of the object."""
+        self.namespace = namespace
+        self.full_name = f"{namespace}.{self.sanitized_name}"
+        if self.objects:
+            for obj in self.objects:
+                obj.update_namespace(self.full_name)
+
+    def as_dict(self) -> dict:
+        """Convert the object to a dictionary."""
+        return {
+            "uri": self.uri,
+            "name": self.name,
+            "sanitized_name": self.sanitized_name,
+            "full_name": self.full_name,
+            "namespace": self.namespace,
+            "objects": [obj.as_dict() for obj in self.objects],
+        }
+
+
+class Fub(BaseXmlModel):
+    uri: str = attr(name="uri")
+    name: str = attr(name="name")
+
+    @property
+    def sanitized_name(self) -> str:
+        """Sanitize the name field."""
+        return sanitize_input(self.name)
+
+    objects: List[Object] = element(tag="object", default=[])
+
+    def model_post_init(self, __context) -> None:
+        """Automatically update namespace after model creation."""
+        for obj in self.objects:
+            obj.namespace = self.sanitized_name
+            obj.full_name = f"{self.name}.{obj.sanitized_name}"
+            if obj.objects:
+                obj.update_namespace(obj.namespace)
+
+    def as_dict(self) -> dict:
+        """Convert the object to a dictionary."""
+        return {
+            "uri": self.uri,
+            "name": self.name,
+            "sanitized_name": self.sanitized_name,
+            "objects": [obj.as_dict() for obj in self.objects],
+        }
+
+
+class Menu(BaseXmlModel):
+    uri: str = attr(name="uri")
+    fubs: List[Fub] = element(tag="fub", default=[])
+
+    def as_dict(self) -> dict:
+        """Convert the object to a dictionary."""
+        return {
+            "uri": self.uri,
+            "fubs": [fub.as_dict() for fub in self.fubs],
+        }
+
+
+class Error(BaseXmlModel):
+    uri: str = attr(name="uri")
+    error_message: str
+
+    def as_dict(self) -> dict:
+        """Convert the object to a dictionary."""
+        return {
+            "uri": self.uri,
+            "error_message": self.error_message,
+        }
+
+
+class Api(BaseXmlModel):
+    version: str = attr(name="version")
+    uri: str = attr(name="uri")
+
+    def as_dict(self) -> dict:
+        """Convert the object to a dictionary."""
+        return {
+            "version": self.version,
+            "uri": self.uri,
+        }
+
+
+class Value(BaseXmlModel):
+    """
+    Value class to represent the value of an object.
+
+    Every <object> can be fetched with the /user/var/<uri> endpoint and
+    thus is represented by the Value class.
+    """
+
+    value: str
+    adv_text_offset: str = attr(name="advTextOffset")
+    unit: Literal[
+        "°C",
+        "W",
+        "A",
+        "Hz",
+        "Pa",
+        "V",
+        "W/m²",
+        "bar",
+        "kW",
+        "kWh",
+        "kg",
+        "mV",
+        "s",
+        "%rH",
+        "m³/h",
+        "",
+    ] = attr(name="unit")
+    uri: str = attr(name="uri")
+    str_value: str = attr(name="strValue")
+    scale_factor: str = attr(name="scaleFactor")
+    dec_places: str = attr(name="decPlaces")
+
+    @property
+    def scaled_value(self) -> str:
+        """Sanitize the name field."""
+        if self.unit != "":
+            return str(float(self.value) / float(self.scale_factor))
+        return self.unit
+
+    def as_dict(self) -> dict:
+        """Convert the object to a dictionary."""
+        return {
+            "value": self.value,
+            "adv_text_offset": self.adv_text_offset,
+            "unit": self.unit,
+            "uri": self.uri,
+            "str_value": self.str_value,
+            "scale_factor": self.scale_factor,
+            "dec_places": self.dec_places,
+        }
+
+
+class Eta(BaseXmlModel, tag="eta"):
+    version: str = attr(name="version")
+    api: Optional[Api] = element(tag="api", default=None)
+    value: Optional[Value] = element(tag="value", default=None)
+    menu: Optional[Menu] = element(tag="menu", default=None)
+    error: Optional[Error] = element(tag="error", default=None)
+
+    def as_dict(self) -> dict:
+        """Convert the object to a dictionary."""
+        return {
+            "version": self.version,
+            "api": self.api.as_dict() if self.api else None,
+            "value": self.value.as_dict() if self.value else None,
+            "menu": self.menu.as_dict() if self.menu else None,
+            "error": self.error.as_dict() if self.error else None,
+        }
+
+
 class EtaApiClient:
     """Sample API Client."""
 
@@ -55,7 +241,7 @@ class EtaApiClient:
         """Build the endpoint URL."""
         return "http://" + self._host + ":" + str(self._port) + endpoint
 
-    async def does_endpoint_exists(self) -> bool:
+    async def does_endpoint_exist(self) -> bool:
         """
         Check if the ETA API is reachable and if the API version is correct.
 
@@ -71,77 +257,38 @@ class EtaApiClient:
             url=self.build_endpoint_url("/user/api"),
         )
 
+        # TODO @Meraxa: Replace with static value
         if resp.status != 200:
             return False
 
         # Check if the response is valid XML
-        parsed_response = xmltodict.parse(await resp.text())
-        api_version = parsed_response["eta"]["api"]["@version"]
-        return api_version == "1.2"
+        text = await resp.text()
+        text = text.replace('xmlns="http://www.eta.co.at/rest/v1"', "")
+        eta = Eta.from_xml(text)
+        if eta.api is None:
+            raise EtaApiClientError("No API version found in response")
 
-    def evaluate_xml_dict(self, xml_dict, uri_dict, prefix=""):
-        if type(xml_dict) is list:
-            for child in xml_dict:
-                self.evaluate_xml_dict(child, uri_dict, prefix)
-        elif "object" in xml_dict:
-            child = xml_dict["object"]
-            new_prefix = f"{prefix} {xml_dict['@name']}"
-            # add parent to uri_dict and evaluate childs then
-            key = f"{prefix} {xml_dict['@name']}".strip().lower().replace(" ", "_")
-            uri_dict[key] = {
-                "url": xml_dict["@uri"],
-                "name": f"{prefix} {xml_dict['@name']}".strip(),
-            }
-            self.evaluate_xml_dict(child, uri_dict, new_prefix)
-        else:
-            key = f"{prefix} {xml_dict['@name']}".strip().lower().replace(" ", "_")
-            uri_dict[key] = {
-                "url": xml_dict["@uri"],
-                "name": f"{prefix} {xml_dict['@name']}".strip(),
-            }
+        return eta.api.version == "1.2"
 
-    def _parse_data(self, data):
-        unit = data["@unit"]
-        if unit in ETA_SENSOR_UNITS:
-            scale_factor = int(data["@scaleFactor"])
-            raw_value = float(data["#text"])
-            value = raw_value / scale_factor
-        else:
-            # use default text string representation for values that cannot be parsed properly
-            value = data["@strValue"]
-        return value, unit
-
-    async def async_get_data(self, url: str):
+    async def async_get_data(self, url: str) -> Value:
         data = await self._api_wrapper(
             method="get", url=self.build_endpoint_url(endpoint=f"/user/var/{url}")
         )
         text = await data.text()
-        data = xmltodict.parse(text)["eta"]["value"]
-        return self._parse_data(data)
+        text = text.replace('xmlns="http://www.eta.co.at/rest/v1"', "")
+        eta = Eta.from_xml(text)
+        if eta.value is None:
+            raise EtaApiClientError("No value found in response")
+        return eta.value
 
-    async def async_get_value_unit(self, url: str):
-        """Get the value and unit of a sensor."""
-        data = await self._api_wrapper(
-            method="get", url=self.build_endpoint_url(endpoint=f"/user/var/{url}")
-        )
-        text = await data.text()
-        data = xmltodict.parse(text)["eta"]["value"]["@unit"]
-        return data
-
-    async def get_raw_sensor_dict(self):
+    async def async_parse_menu(self):
         data = await self._api_wrapper(
             method="get", url=self.build_endpoint_url(endpoint="/user/menu")
         )
         text = await data.text()
-        data = xmltodict.parse(text)
-        raw_dict = data["eta"]["menu"]["fub"]
-        return raw_dict
-
-    async def get_sensors_dict(self):
-        raw_dict = await self.get_raw_sensor_dict()
-        uri_dict = {}
-        self.evaluate_xml_dict(raw_dict, uri_dict)
-        return uri_dict
+        text = text.replace('xmlns="http://www.eta.co.at/rest/v1"', "")
+        eta = Eta.from_xml(text)
+        return eta
 
     async def _api_wrapper(
         self,

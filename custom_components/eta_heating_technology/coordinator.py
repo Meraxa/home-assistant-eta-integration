@@ -16,6 +16,7 @@ from custom_components.eta_heating_technology.const import (
 from .api import (
     EtaApiClientAuthenticationError,
     EtaApiClientError,
+    Object,
 )
 
 if TYPE_CHECKING:
@@ -35,17 +36,15 @@ class EtaDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             _LOGGER.info("Calling EtaDataUpdateCoordinator _async_update_data")
             data = {}
-            for sensor_key in self.config_entry.data[CHOSEN_ENTITIES]:
-                sensor_url = self.config_entry.data[DISCOVERED_ENTITIES][sensor_key][
-                    "url"
-                ]
-                (
-                    value,
-                    unit,
-                ) = await self.config_entry.runtime_data.client.async_get_data(
-                    sensor_url
+            chosen_objects: list[Object] = [
+                Object.model_validate(obj)
+                for obj in self.config_entry.data[CHOSEN_ENTITIES]
+            ]
+            for obj in chosen_objects:
+                value = await self.config_entry.runtime_data.client.async_get_data(
+                    obj.uri
                 )
-                data[sensor_key] = value
+                data[obj.full_name] = value
             return data
         except EtaApiClientAuthenticationError as exception:
             raise ConfigEntryAuthFailed(exception) from exception

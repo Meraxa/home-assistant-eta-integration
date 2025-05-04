@@ -12,6 +12,7 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
@@ -51,6 +52,15 @@ async def async_setup_entry(
         ),
         integration=async_get_loaded_integration(hass, config_entry.domain),
         coordinator=coordinator,
+    )
+
+    device_registry = dr.async_get(hass)
+
+    device_registry.async_get_or_create(
+        config_entry_id=config_entry.entry_id,
+        identifiers={(DOMAIN, config_entry.entry_id)},
+        manufacturer="Eta Heating Technology",
+        name="Eta Heating System",
     )
 
     _LOGGER.info("Config entry data keys: %s", config_entry.data.keys())

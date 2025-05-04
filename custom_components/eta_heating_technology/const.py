@@ -1,6 +1,8 @@
 """Constants for ETA heating technology."""
 
+from enum import Enum
 from logging import Logger, getLogger
+from typing import Literal
 
 from homeassistant.components.sensor import SensorDeviceClass
 

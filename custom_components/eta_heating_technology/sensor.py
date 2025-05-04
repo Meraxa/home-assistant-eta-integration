@@ -13,6 +13,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 
+from custom_components.eta_heating_technology.api import Object, Value
 from custom_components.eta_heating_technology.const import (
     CHOSEN_ENTITIES,
     DISCOVERED_ENTITIES,
@@ -34,21 +35,21 @@ if TYPE_CHECKING:
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
+    hass: HomeAssistant,  # noqa: ARG001
     config_entry: EtaConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-    sensor_keys: list[str] = config_entry.data[CHOSEN_ENTITIES]
-    LOGGER.info("sensor_keys: %s", sensor_keys)
+    chosen_objects: list[Object] = [
+        Object.model_validate(obj) for obj in config_entry.data[CHOSEN_ENTITIES]
+    ]
+    LOGGER.info("sensor_keys: %s", chosen_objects)
 
     eta_sensors: list[EtaSensor | EtaBinarySensor] = []
-    for sensor_key in sensor_keys:
-        sensor_url = config_entry.data[DISCOVERED_ENTITIES][sensor_key]["url"]
-        sensor_name = config_entry.data[DISCOVERED_ENTITIES][sensor_key]["name"]
-
+    for sensor in chosen_objects:
         api_client = config_entry.runtime_data.client
-        sensor_unit = await api_client.async_get_value_unit(sensor_url)
+        value: Value = await api_client.async_get_data(sensor.uri)
+        sensor_unit = value.unit
 
         # Determine the sensor type based on the unit
         if sensor_unit in ETA_SENSOR_UNITS:
@@ -56,23 +57,24 @@ async def async_setup_entry(
                 coordinator=config_entry.runtime_data.coordinator,
                 api_client=api_client,
                 entity_description=SensorEntityDescription(
-                    key=sensor_key,
-                    name=sensor_name,
+                    key=sensor.full_name,
+                    name=sensor.name,
                     device_class=ETA_SENSOR_UNITS[sensor_unit],
+                    native_unit_of_measurement=sensor_unit,
                 ),
                 config_entry_id=config_entry.entry_id,
-                url=sensor_url,
+                url=sensor.uri,
             )
         else:
             e = EtaBinarySensor(
                 coordinator=config_entry.runtime_data.coordinator,
                 api_client=api_client,
                 entity_description=BinarySensorEntityDescription(
-                    key=sensor_key,
-                    name=sensor_name,
+                    key=sensor.full_name,
+                    name=sensor.name,
                 ),
                 config_entry_id=config_entry.entry_id,
-                url=sensor_url,
+                url=sensor.uri,
             )
         eta_sensors.append(e)
 
@@ -108,7 +110,9 @@ class EtaSensor(EtaEntity, SensorEntity):
             self.entity_description.key,
             self._attr_unique_id,
         )
-        return self.coordinator.data.get(self.entity_description.key)
+        value: Value | None = self.coordinator.data.get(self.entity_description.key)
+        assert value is not None
+        return value.scaled_value
 
 
 class EtaBinarySensor(EtaEntity, BinarySensorEntity):
@@ -141,5 +145,6 @@ class EtaBinarySensor(EtaEntity, BinarySensorEntity):
             self._attr_unique_id,
         )
         # Translate the value to a boolean
-        value = self.coordinator.data.get(self.entity_description.key)
+        value: Value | None = self.coordinator.data.get(self.entity_description.key)
+        assert value is not None
         return ETA_BINARY_SENSOR_UNITS_DE.get(str(value), False)

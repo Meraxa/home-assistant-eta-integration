@@ -12,7 +12,7 @@ from homeassistant.helpers.aiohttp_client import (
     async_get_clientsession,
 )
 
-from .api import EtaApiClient
+from .api import Eta, EtaApiClient, EtaApiClientError, Fub, Object
 from .const import (
     CHOSEN_ENTITIES,
     CONF_HOST,
@@ -28,11 +28,37 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigFlowResult
 
 
+class ConfigurationFlowData:
+    """Class to hold the configuration flow data."""
+
+    def __init__(
+        self,
+        host: str,
+        port: str,
+        discovered_entities: Eta,
+        chosen_entities: list[Object] = [],
+    ) -> None:
+        """Initialize the configuration flow data."""
+        self.host: str = host
+        self.port: str = port
+        self.discovered_entities: Eta = discovered_entities
+        self.chosen_entities: list[Object] = chosen_entities
+
+    def as_dict(self) -> dict:
+        """Convert the configuration flow data to a dictionary."""
+        return {
+            CONF_HOST: self.host,
+            CONF_PORT: self.port,
+            CHOSEN_ENTITIES: self.chosen_entities,
+        }
+
+
 class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
     """Config flow for eta_heating_technology."""
 
     _errors = {}
     VERSION = 1
+    configuration_flow_data: ConfigurationFlowData
 
     async def async_step_user(
         self,
@@ -44,14 +70,14 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
                 user_input[CONF_HOST], user_input[CONF_PORT]
             )
             if url_valid:
-                self.data = {
-                    CONF_HOST: user_input[CONF_HOST],
-                    CONF_PORT: user_input[CONF_PORT],
-                    DISCOVERED_ENTITIES: await self._get_possible_endpoints(
-                        user_input[CONF_HOST], user_input[CONF_PORT]
-                    ),
-                    CHOSEN_ENTITIES: [],
-                }
+                possible_endpoints: Eta = await self._get_possible_endpoints(
+                    user_input[CONF_HOST], user_input[CONF_PORT]
+                )
+                self.configuration_flow_data = ConfigurationFlowData(
+                    host=user_input[CONF_HOST],
+                    port=user_input[CONF_PORT],
+                    discovered_entities=possible_endpoints,
+                )
 
                 return await self.async_step_select_entities()
 
@@ -62,36 +88,59 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
 
         return await self._show_config_form_user(user_input)
 
+    def get_objects_recursively(self, data: Fub | Object) -> list[Object]:
+        """Get all objects recursively from the data."""
+        objects: list[Object] = []
+        if isinstance(data, (Fub, Object)):
+            for obj in data.objects:
+                objects.extend(self.get_objects_recursively(obj))
+            if isinstance(data, Object):
+                objects.append(data)
+        return objects
+
     async def async_step_select_entities(
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
         """Second step in config flow to add a repo to watch."""
+
+        if self.configuration_flow_data.discovered_entities is None:
+            raise EtaApiClientError("No discovered entities found")
+        menu = self.configuration_flow_data.discovered_entities.menu
+        if menu is None:
+            raise EtaApiClientError("No menu found in response")
+        fubs = menu.fubs
+        if fubs is None:
+            raise EtaApiClientError("No fubs found in response")
+
+        objects: list[Object] = []
+        for fub in fubs:
+            # Get all objects recursively from the fub
+            objects.extend(self.get_objects_recursively(fub))
+
         if user_input is not None:
+            # Check if the user has selected at least one entity
+            if not user_input[CHOSEN_ENTITIES]:
+                self._errors["base"] = "no_entities_selected"
+                return await self._show_config_form_endpoint(objects)
+
             # Add the keys of the selected entities to the data dict if the name is in
             # the user_input
-            dat: dict = self.data[DISCOVERED_ENTITIES]
-            self.data[CHOSEN_ENTITIES] = [
-                key
-                for key, value in dat.items()
-                if value["name"] in user_input[CHOSEN_ENTITIES]
+            self.configuration_flow_data.chosen_entities = [
+                obj for obj in objects if obj.full_name in user_input[CHOSEN_ENTITIES]
             ]
 
-            # Check if the user has selected at least one entity
-            if not self.data[CHOSEN_ENTITIES]:
-                self._errors["base"] = "no_entities_selected"
-                return await self._show_config_form_endpoint(
-                    self.data[DISCOVERED_ENTITIES]
-                )
-
             # Add this line to log the selected entities
-            _LOGGER.info("self.data[CHOSEN_ENTITIES]: %s", self.data[CHOSEN_ENTITIES])
+            _LOGGER.info(
+                "self.configuration_flow_data.chosen_entities: %s",
+                self.configuration_flow_data.chosen_entities,
+            )
 
             # User is done, create the config entry.
             return self.async_create_entry(
-                title=f"ETA at {self.data[CONF_HOST]}", data=self.data
+                title=f"ETA at {self.configuration_flow_data.host}",
+                data=self.configuration_flow_data.as_dict(),
             )
-
-        return await self._show_config_form_endpoint(self.data[DISCOVERED_ENTITIES])
+        return await self._show_config_form_endpoint(objects)
 
     async def _show_config_form_user(self, user_input: dict) -> ConfigFlowResult:
         """Show the configuration form to edit host and port data."""
@@ -106,7 +155,9 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
             errors=self._errors,
         )
 
-    async def _show_config_form_endpoint(self, endpoint_dict: dict) -> ConfigFlowResult:
+    async def _show_config_form_endpoint(
+        self, objects: list[Object]
+    ) -> ConfigFlowResult:
         """Show the configuration form to select which endpoints should become entities."""
         return self.async_show_form(
             step_id="select_entities",
@@ -114,9 +165,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
                 {
                     vol.Optional(CHOSEN_ENTITIES): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=[
-                                endpoint_dict[key]["name"] for key in endpoint_dict
-                            ],
+                            options=[obj.full_name for obj in objects],
                             mode=selector.SelectSelectorMode.DROPDOWN,
                             multiple=True,
                         )
@@ -126,7 +175,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
             errors=self._errors,
         )
 
-    async def _get_possible_endpoints(self, host: str, port: str) -> dict:
+    async def _get_possible_endpoints(self, host: str, port: str) -> Eta:
         """
         Request the available endpoints from the ETA API.
 
@@ -137,14 +186,12 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
             port (int): The port of the ETA API, e.g. `8080`.
 
         Returns:
-            dict: Dictionary with the available endpoints with the name of the sensor as
-                key and the endpoint as value.
-                Example: `{"Sensor 1": "/user/var/1", "Sensor 2": "/user/var/2"}`.
+            Eta: The parsed ETA object containing the available endpoints.
 
         """
         session: ClientSession = async_get_clientsession(self.hass)
         eta_client = EtaApiClient(host=host, port=port, session=session)
-        return await eta_client.get_sensors_dict()
+        return await eta_client.async_parse_menu()
 
     async def _test_url(self, host: str, port: str) -> bool:
         """
@@ -160,4 +207,4 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
         """
         session: ClientSession = async_get_clientsession(self.hass)
         eta_client = EtaApiClient(host=host, port=port, session=session)
-        return await eta_client.does_endpoint_exists()
+        return await eta_client.does_endpoint_exist()
