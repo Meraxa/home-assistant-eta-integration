@@ -162,12 +162,12 @@ class EtaBinarySensor(EtaEntity, BinarySensorEntity):
                 "value was `None`."
             )
             raise ValueNoneError(msg)
-        str_value = ETA_BINARY_SENSOR_UNITS_DE.get(str(value), None)
+        str_value = ETA_BINARY_SENSOR_UNITS_DE.get(str(value.str_value), None)
         if str_value is None:
             msg = (
                 f"Calling native_value for: {self.entity_description.key} with "
                 f"_attr_unique_id: {self._attr_unique_id} failed because the returned "
-                "value was `None`."
+                f"value was {value}."
             )
             raise ValueNoneError(msg)
         return str_value
