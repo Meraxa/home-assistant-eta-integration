@@ -1,0 +1,29 @@
+{
+    "titel": "ETA Heating Technology",
+    "config": {
+        "step": {
+            "user": {
+                "titel": "Network Configuration",
+                "description": "Provide the IP address and port of the ETA heating system api endpoint.",
+                "data": {
+                    "host": "Host",
+                    "port": "Port"
+                }
+            },
+            "select_entities": {
+                "titel": "Entity Selection",
+                "description": "Select the entities you want to add to Home Assistant.",
+                "data": {
+                    "chosen_entities": "Entities"
+                }
+            }
+        },
+        "error": {
+            "url_broken": "The host url and port don't are valid. The ETA API endpoint can not be reached with this combination.",
+            "no_entities_selected": "Select at least one entity."
+        },
+        "abort": {
+            "single_instance_allowed": "Only a single instance is allowed."
+        }
+    }
+}
