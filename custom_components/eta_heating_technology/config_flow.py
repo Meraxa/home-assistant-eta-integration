@@ -83,7 +83,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
             self._errors["base"] = "url_broken"
 
         # Provide defaults for form
-        user_input = {CONF_HOST: "192.168.178.59", CONF_PORT: "8080"}
+        user_input = {CONF_HOST: "0.0.0.0", CONF_PORT: "8080"}
 
         return await self._show_config_form_user(user_input)
 
