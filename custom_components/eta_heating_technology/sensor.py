@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.components.binary_sensor import (
@@ -18,10 +19,12 @@ from custom_components.eta_heating_technology.const import (
     CHOSEN_ENTITIES,
     ETA_BINARY_SENSOR_UNITS_DE,
     ETA_SENSOR_UNITS,
-    LOGGER,
 )
 
 from .entity import EtaEntity
+
+_LOGGER = logging.getLogger(__name__)
+
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -46,7 +49,7 @@ async def async_setup_entry(
     chosen_objects: list[Object] = [
         Object.model_validate(obj) for obj in config_entry.data[CHOSEN_ENTITIES]
     ]
-    LOGGER.info("sensor_keys: %s", chosen_objects)
+    _LOGGER.info("sensor_keys: %s", chosen_objects)
 
     eta_sensors: list[EtaSensor | EtaBinarySensor] = []
     for sensor in chosen_objects:
@@ -61,7 +64,7 @@ async def async_setup_entry(
                 api_client=api_client,
                 entity_description=SensorEntityDescription(
                     key=sensor.full_name,
-                    name=sensor.name,
+                    name=sensor.full_name,
                     device_class=ETA_SENSOR_UNITS[sensor_unit],
                     native_unit_of_measurement=sensor_unit,
                 ),
@@ -74,7 +77,7 @@ async def async_setup_entry(
                 api_client=api_client,
                 entity_description=BinarySensorEntityDescription(
                     key=sensor.full_name,
-                    name=sensor.name,
+                    name=sensor.full_name,
                 ),
                 config_entry_id=config_entry.entry_id,
                 url=sensor.uri,
@@ -108,7 +111,7 @@ class EtaSensor(EtaEntity, SensorEntity):
     @property
     def native_value(self) -> str | None:
         """Return the native value of the sensor."""
-        LOGGER.info(
+        _LOGGER.info(
             "Calling native_value for: %s with _attr_unique_id: %s",
             self.entity_description.key,
             self._attr_unique_id,
@@ -121,7 +124,8 @@ class EtaSensor(EtaEntity, SensorEntity):
             f"_attr_unique_id: {self._attr_unique_id} failed because the returned "
             "value was `None`."
         )
-        raise ValueNoneError(msg)
+        _LOGGER.error(msg=msg)
+        return None
 
 
 class EtaBinarySensor(EtaEntity, BinarySensorEntity):
@@ -146,9 +150,9 @@ class EtaBinarySensor(EtaEntity, BinarySensorEntity):
         self.coordinator = coordinator
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool | None:
         """Return the native value of the sensor."""
-        LOGGER.info(
+        _LOGGER.info(
             "Calling native_value for: %s with _attr_unique_id: %s",
             self.entity_description.key,
             self._attr_unique_id,
@@ -161,7 +165,8 @@ class EtaBinarySensor(EtaEntity, BinarySensorEntity):
                 f"_attr_unique_id: {self._attr_unique_id} failed because the returned "
                 "value was `None`."
             )
-            raise ValueNoneError(msg)
+            _LOGGER.error(msg=msg)
+            return None
         str_value = ETA_BINARY_SENSOR_UNITS_DE.get(str(value.str_value), None)
         if str_value is None:
             msg = (
@@ -169,5 +174,6 @@ class EtaBinarySensor(EtaEntity, BinarySensorEntity):
                 f"_attr_unique_id: {self._attr_unique_id} failed because the returned "
                 f"value was {value}."
             )
-            raise ValueNoneError(msg)
+            _LOGGER.error(msg=msg)
+            return None
         return str_value

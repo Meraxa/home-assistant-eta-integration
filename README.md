@@ -1,46 +1,53 @@
-# Notice
+# Home Assistant ETA Integration
 
-The component and platforms in this repository are not meant to be used by a
-user, but as a "blueprint" that custom component developers can build
-upon, to make more awesome stuff.
+An Home Assistant integration for fetching data from the api endpoint exposed by the ETA heating system in your local network.
 
-HAVE FUN! 😎
+<img src="eta-heiztechnik-gmbh-logo-vector.png" alt="Eta Heiztechnik Logo" width="400"/>
 
-## Why?
+> Disclaimer: This repository is based on the [integration_bluepring](https://github.com/ludeeus/integration_blueprint) by [@ludeeus](https://github.com/ludeeus) and the [homeassistant_eta_integration](https://github.com/nigl/homeassistant_eta_integration) developed by [@nigl](https://github.com/nigl).
 
-This is simple, by having custom_components look (README + structure) the same
-it is easier for developers to help each other and for users to start using them.
+## What is it about?
 
-If you are a developer and you want to add things to this "blueprint" that you think more
-developers will have use for, please open a PR to add it :)
+The ETA heating system exposes an api endpoint in your local network that can be used to fetch data from the system and even control certain elements of the system.
+This integration is enabling you to fetch data from it such as temperatures, power values and on/off states.
 
-## What?
+To use the functionality, you have to enable the api endpoint.
+Take a look in the [api documentation](ETA-RESTful-v1.2.pdf) for more information about enabling and the individual options the api provides.
+
+## How to configure the integration
+
+The configuration of the integration consists of two steps and some preparation work.
+
+**Preparation:** I recommend taking a look at the menu provided by the api at the url `<ip>:<port>/user/menu` to get a basic overview of the available endpoints.
+Not all listed endpoints can be polled for information and not all pollable endpoints return valuable information.
+As a general rule, I'd fetch the value for each point you're interested at least once to check if the datapoint has a unit.
+You can fetch a datapoint by using the url `<ip>:<port>/user/var/<object-uri>`, where the `object-uri` can be obtained from the menu.
+
+> Fetching datapoints without units is not fully supported by the integration at the moment and thus, I'd stick with values that have a unit such as `°C` or `W`.
+> Some unit-less values are supported, e.g. `Ein`, `Aus`, `Eingeschaltet` and `Ausgeschaltet` to support basic on/off monitoring.
+
+After collection the datapoints and full names (the whole name path to the object, e.g. `Buffer.Inputs.Buffer Sensor 1`) of the datapoints you're interested, you can start configuring the integration.
+
+**Configuration of the integration:** The integration will ask you for the IP address and the port of your ETA system.
+It then will fetch the menu and present you with a list of all available (including non pollable and useless) endpoints.
+Select the endpoints that you've evaluated as valuable during the **preparation step**.
+
+## Information on this repository
 
 This repository contains multiple files, here is a overview:
 
 File | Purpose | Documentation
 -- | -- | --
 `.devcontainer.json` | Used for development/testing with Visual Studio Code. | [Documentation](https://code.visualstudio.com/docs/remote/containers)
-`.github/ISSUE_TEMPLATE/*.yml` | Templates for the issue tracker | [Documentation](https://help.github.com/en/github/building-a-strong-community/configuring-issue-templates-for-your-repository)
-`custom_components/integration_blueprint/*` | Integration files, this is where everything happens. | [Documentation](https://developers.home-assistant.io/docs/creating_component_index)
+`custom_components/eta_heating_technology/*` | Integration files, this is where everything happens. | [Documentation](https://developers.home-assistant.io/docs/creating_component_index)
 `CONTRIBUTING.md` | Guidelines on how to contribute. | [Documentation](https://help.github.com/en/github/building-a-strong-community/setting-guidelines-for-repository-contributors)
 `LICENSE` | The license file for the project. | [Documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/licensing-a-repository)
 `README.md` | The file you are reading now, should contain info about the integration, installation and configuration instructions. | [Documentation](https://help.github.com/en/github/writing-on-github/basic-writing-and-formatting-syntax)
 `requirements.txt` | Python packages used for development/lint/testing this integration. | [Documentation](https://pip.pypa.io/en/stable/user_guide/#requirements-files)
 
-## How?
+To start a development instance of the integration, run the `scripts/develop` to start HA and test out your new integration.
 
-1. Create a new repository in GitHub, using this repository as a template by clicking the "Use this template" button in the GitHub UI.
-1. Open your new repository in Visual Studio Code devcontainer (Preferably with the "`Dev Containers: Clone Repository in Named Container Volume...`" option).
-1. Rename all instances of the `integration_blueprint` to `custom_components/<your_integration_domain>` (e.g. `custom_components/awesome_integration`).
-1. Rename all instances of the `Integration Blueprint` to `<Your Integration Name>` (e.g. `Awesome Integration`).
-1. Run the `scripts/develop` to start HA and test out your new integration.
+## FAQ and Problems
 
-## Next steps
-
-These are some next steps you may want to look into:
-- Add tests to your integration, [`pytest-homeassistant-custom-component`](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component) can help you get started.
-- Add brand images (logo/icon) to https://github.com/home-assistant/brands.
-- Create your first release.
-- Share your integration on the [Home Assistant Forum](https://community.home-assistant.io/).
-- Submit your integration to [HACS](https://hacs.xyz/docs/publish/start).
+- I've encountered a problem in which the [XML parsing](https://pydantic-xml.readthedocs.io/en/latest/pages/misc.html#xml-parser) was throwing exceptions because the it used `lxml` instead of `xml.etree.ElementTree` for parsing.
+  The solution is to set the environment variable `FORCE_STD_XML` to `True` using [hass-environment-variable](https://github.com/Athozs/hass-environment-variable).
