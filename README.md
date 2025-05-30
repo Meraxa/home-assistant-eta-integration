@@ -46,8 +46,3 @@ File | Purpose | Documentation
 `requirements.txt` | Python packages used for development/lint/testing this integration. | [Documentation](https://pip.pypa.io/en/stable/user_guide/#requirements-files)
 
 To start a development instance of the integration, run the `scripts/develop` to start HA and test out your new integration.
-
-## FAQ and Problems
-
-- I've encountered a problem in which the [XML parsing](https://pydantic-xml.readthedocs.io/en/latest/pages/misc.html#xml-parser) was throwing exceptions because the it used `lxml` instead of `xml.etree.ElementTree` for parsing.
-  The solution is to set the environment variable `FORCE_STD_XML` to `True` using [hass-environment-variable](https://github.com/Athozs/hass-environment-variable).
