@@ -281,6 +281,13 @@ class EtaApiClient:
         """Build the endpoint URL."""
         return "http://" + self._host + ":" + str(self._port) + endpoint
 
+    async def parse_xml_response(self, resp: aiohttp.ClientResponse) -> Eta:
+        """Parse the XML response text into an Eta object."""
+        text = await resp.text()
+        text = text.replace('xmlns="http://www.eta.co.at/rest/v1"', "")
+        text = text.encode("utf-8")
+        return Eta.from_xml(text)
+
     async def does_endpoint_exist(self) -> bool:
         """
         Check if the ETA API is reachable and if the API version is correct.
@@ -301,10 +308,7 @@ class EtaApiClient:
         if resp.status != 200:
             return False
 
-        # Check if the response is valid XML
-        text = await resp.text()
-        text = text.replace('xmlns="http://www.eta.co.at/rest/v1"', "")
-        eta = Eta.from_xml(text)
+        eta = await self.parse_xml_response(resp)
         if eta.api is None:
             raise EtaApiClientError("No API version found in response")
 
@@ -312,24 +316,20 @@ class EtaApiClient:
 
     async def async_get_data(self, url: str) -> Value:
         """Get a value from the ETA api endpoint."""
-        data = await self._api_wrapper(
+        resp = await self._api_wrapper(
             method="get", url=self.build_endpoint_url(endpoint=f"/user/var/{url}")
         )
-        text = await data.text()
-        text = text.replace('xmlns="http://www.eta.co.at/rest/v1"', "")
-        eta = Eta.from_xml(text)
+        eta = await self.parse_xml_response(resp)
         if eta.value is None:
             raise EtaApiClientError("No value found in response")
         return eta.value
 
     async def async_parse_menu(self) -> Eta:
         """Get the xml menu listing from the ETA api and parse it to a datastructure."""
-        data = await self._api_wrapper(
+        resp = await self._api_wrapper(
             method="get", url=self.build_endpoint_url(endpoint="/user/menu")
         )
-        text = await data.text()
-        text = text.replace('xmlns="http://www.eta.co.at/rest/v1"', "")
-        return Eta.from_xml(text)
+        return await self.parse_xml_response(resp)
 
     async def _api_wrapper(
         self,

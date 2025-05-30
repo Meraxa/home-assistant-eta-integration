@@ -10,6 +10,6 @@
   "issue_tracker": "https://github.com/Meraxa/home-assistant-eta-integration/issues",
   "version": "0.1.1",
   "requirements": [
-    "pydantic-xml==2.16.0"
+    "pydantic-xml[lxml]==2.16.0"
   ]
 }
