@@ -9,4 +9,4 @@ homeassistant:
 logger:
   default: info
   logs:
-    custom_components.eta_heating_technology: info
+    custom_components.eta_heating_technology: debug
