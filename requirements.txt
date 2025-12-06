@@ -6,3 +6,4 @@ pydantic-xml==2.18.0
 
 # Testing
 pytest-asyncio
+pre-commit
