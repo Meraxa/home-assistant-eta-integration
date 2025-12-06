@@ -1,9 +1,7 @@
 {
-    "titel": "ETA Heating Technology",
     "config": {
         "step": {
             "user": {
-                "titel": "Network Configuration",
                 "description": "Provide the IP address and port of the ETA heating system api endpoint.",
                 "data": {
                     "host": "Host",
@@ -11,7 +9,6 @@
                 }
             },
             "select_entities": {
-                "titel": "Entity Selection",
                 "description": "Select the entities you want to add to Home Assistant.",
                 "data": {
                     "chosen_entities": "Entities"

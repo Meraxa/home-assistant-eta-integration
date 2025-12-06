@@ -22,7 +22,7 @@ NO_RESPONSE_REQUEST = """"""
 
 
 class TestResponse:
-    def __init__(self, status, text):
+    def __init__(self, status, text) -> None:
         self.status = status
         self._text = text
 
@@ -39,7 +39,7 @@ def mock_get_request(response_status, response_text):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "response_status, response_text, expected_result",
+    ("response_status", "response_text", "expected_result"),
     [
         (200, VALID_VERSION_REQUEST, True),
         (200, INVALID_VERSION_REQUEST, False),
@@ -48,7 +48,7 @@ def mock_get_request(response_status, response_text):
 )
 async def test_does_endpoint_exist(
     monkeypatch, response_status, response_text, expected_result
-):
+) -> None:
     monkeypatch.setattr(
         EtaApiClient,
         "_api_wrapper",
@@ -178,12 +178,12 @@ MENUE_RESPONSE_MODEL = Eta(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "response_status, response_text, expected_result",
+    ("response_status", "response_text", "expected_result"),
     [
         (200, MENUE_RESPONSE, MENUE_RESPONSE_MODEL),
     ],
 )
-async def test_get_menu(monkeypatch, response_status, response_text, expected_result):
+async def test_get_menu(monkeypatch, response_status, response_text, expected_result) -> None:
     monkeypatch.setattr(
         EtaApiClient,
         "_api_wrapper",
@@ -234,13 +234,13 @@ TEST_3_EX = Value(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "response_status, response_text, expected_result",
+    ("response_status", "response_text", "expected_result"),
     [
         (200, TEST_2, TEST_2_EX),
         (200, TEST_3, TEST_3_EX),
     ],
 )
-async def test_get_data(monkeypatch, response_status, response_text, expected_result):
+async def test_get_data(monkeypatch, response_status, response_text, expected_result) -> None:
     monkeypatch.setattr(
         EtaApiClient,
         "_api_wrapper",
