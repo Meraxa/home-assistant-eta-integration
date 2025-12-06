@@ -46,9 +46,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-    chosen_objects: list[Object] = [
-        Object.model_validate(obj) for obj in config_entry.data[CHOSEN_ENTITIES]
-    ]
+    chosen_objects: list[Object] = [Object.model_validate(obj) for obj in config_entry.data[CHOSEN_ENTITIES]]
     _LOGGER.info("sensor_keys: %s", chosen_objects)
 
     eta_sensors: list[EtaSensor | EtaBinarySensor] = []

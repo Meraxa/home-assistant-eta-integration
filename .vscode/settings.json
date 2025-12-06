@@ -1,0 +1,13 @@
+{
+    "python.testing.pytestArgs": [
+        "-vv",
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "files.trimTrailingWhitespace": true,
+    "files.trimFinalNewlines": true,
+    "files.insertFinalNewline": true,
+    "editor.formatOnSave": true,
+    "files.eol": "\n"
+}

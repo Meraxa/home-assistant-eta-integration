@@ -35,9 +35,11 @@ class ConfigurationFlowData:
         host: str,
         port: str,
         discovered_entities: Eta,
-        chosen_entities: list[Object] = [],
+        chosen_entities: list[Object] | None = None,
     ) -> None:
         """Initialize the configuration flow data."""
+        if chosen_entities is None:
+            chosen_entities = []
         self.host: str = host
         self.port: str = port
         self.discovered_entities: Eta = discovered_entities
@@ -55,9 +57,12 @@ class ConfigurationFlowData:
 class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
     """Config flow for eta_heating_technology."""
 
-    _errors = {}
     VERSION = 1
     configuration_flow_data: ConfigurationFlowData
+
+    def __init__(self) -> None:  # noqa: D107
+        super().__init__()
+        self._errors = {}
 
     async def async_step_user(
         self,
@@ -65,13 +70,9 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle a flow initialized by the user."""
         if user_input is not None:
-            url_valid = await self._test_url(
-                user_input[CONF_HOST], user_input[CONF_PORT]
-            )
+            url_valid = await self._test_url(user_input[CONF_HOST], user_input[CONF_PORT])
             if url_valid:
-                possible_endpoints: Eta = await self._get_possible_endpoints(
-                    user_input[CONF_HOST], user_input[CONF_PORT]
-                )
+                possible_endpoints: Eta = await self._get_possible_endpoints(user_input[CONF_HOST], user_input[CONF_PORT])
                 self.configuration_flow_data = ConfigurationFlowData(
                     host=user_input[CONF_HOST],
                     port=user_input[CONF_PORT],
@@ -83,7 +84,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
             self._errors["base"] = "url_broken"
 
         # Provide defaults for form
-        user_input = {CONF_HOST: "0.0.0.0", CONF_PORT: "8080"}
+        user_input = {CONF_HOST: "0.0.0.0", CONF_PORT: "8080"}  # noqa: S104
 
         return await self._show_config_form_user(user_input)
 
@@ -97,18 +98,19 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
                 objects.append(data)
         return objects
 
-    async def async_step_select_entities(
-        self, user_input: dict | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_select_entities(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Second step in config flow to add a repo to watch."""
         if self.configuration_flow_data.discovered_entities is None:
-            raise EtaApiClientError("No discovered entities found")
+            msg = "No discovered entities found"
+            raise EtaApiClientError(msg)
         menu = self.configuration_flow_data.discovered_entities.menu
         if menu is None:
-            raise EtaApiClientError("No menu found in response")
+            msg = "No menu found in response"
+            raise EtaApiClientError(msg)
         fubs = menu.fubs
         if fubs is None:
-            raise EtaApiClientError("No fubs found in response")
+            msg = "No fubs found in response"
+            raise EtaApiClientError(msg)
 
         objects: list[Object] = []
         for fub in fubs:
@@ -123,9 +125,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
 
             # Add the keys of the selected entities to the data dict if the name is in
             # the user_input
-            self.configuration_flow_data.chosen_entities = [
-                obj for obj in objects if obj.full_name in user_input[CHOSEN_ENTITIES]
-            ]
+            self.configuration_flow_data.chosen_entities = [obj for obj in objects if obj.full_name in user_input[CHOSEN_ENTITIES]]
 
             # Add this line to log the selected entities
             _LOGGER.info(
@@ -153,9 +153,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
             errors=self._errors,
         )
 
-    async def _show_config_form_endpoint(
-        self, objects: list[Object]
-    ) -> ConfigFlowResult:
+    async def _show_config_form_endpoint(self, objects: list[Object]) -> ConfigFlowResult:
         """Show the configuration form to select which endpoints should become entities."""
         return self.async_show_form(
             step_id="select_entities",

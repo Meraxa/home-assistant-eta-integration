@@ -41,3 +41,6 @@ ETA_BINARY_SENSOR_UNITS_DE = {
     "Eingeschaltet": True,
     "Ausgeschaltet": False,
 }
+
+# Miscellaneous constants
+HTTP_OK = 200
