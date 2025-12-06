@@ -80,9 +80,7 @@ async def async_unload_entry(
     config_entry: EtaConfigEntry,
 ) -> bool:
     """Handle removal of an entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(
-        config_entry, PLATFORMS
-    )
+    unload_ok = await hass.config_entries.async_unload_platforms(config_entry, PLATFORMS)
     if unload_ok:
         _LOGGER.info("Unloading of config entry %s successful.", config_entry.entry_id)
 

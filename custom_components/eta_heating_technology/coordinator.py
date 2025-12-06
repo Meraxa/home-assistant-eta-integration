@@ -35,14 +35,9 @@ class EtaDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             _LOGGER.info("Calling EtaDataUpdateCoordinator _async_update_data")
             data = {}
-            chosen_objects: list[Object] = [
-                Object.model_validate(obj)
-                for obj in self.config_entry.data[CHOSEN_ENTITIES]
-            ]
+            chosen_objects: list[Object] = [Object.model_validate(obj) for obj in self.config_entry.data[CHOSEN_ENTITIES]]
             for obj in chosen_objects:
-                value = await self.config_entry.runtime_data.client.async_get_data(
-                    obj.uri
-                )
+                value = await self.config_entry.runtime_data.client.async_get_data(obj.uri)
                 data[obj.full_name] = value
         except EtaApiClientAuthenticationError as exception:
             raise ConfigEntryAuthFailed(exception) from exception
