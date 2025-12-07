@@ -9,6 +9,8 @@ from custom_components.eta_heating_technology.api import (
     Object,
     Value,
 )
+from custom_components.eta_heating_technology.const import EtaSensorType
+from custom_components.eta_heating_technology.sensor import determine_sensor_type
 
 VALID_VERSION_REQUEST = """<eta xmlns="http://www.eta.co.at/rest/v1" version="1.0">
     <api version="1.2" uri="/user/api"/>
@@ -205,9 +207,9 @@ TEST_2 = """
 </eta>
 """
 
-TEST_3 = """
+TEST_4 = """
 <eta xmlns="http://www.eta.co.at/rest/v1" version="1.0">
-    <value advTextOffset="0" unit="" uri="/user/var/24/10561/0/0/10990" strValue="" scaleFactor="1" decPlaces="0">0</value>
+    <value advTextOffset="2000" unit="" uri="/user/var/24/10561/0/0/12000" strValue="Heizen" scaleFactor="1" decPlaces="0">2006</value>
 </eta>
 """
 
@@ -221,12 +223,13 @@ TEST_2_EX = Value(
     dec_places="0",
 )
 
-TEST_3_EX = Value(
-    value="0",
-    adv_text_offset="0",
+
+TEST_4_EX = Value(
+    value="2006",
+    adv_text_offset="2000",
     unit="",
-    uri="/user/var/24/10561/0/0/10990",
-    str_value="",
+    uri="/user/var/24/10561/0/0/12000",
+    str_value="Heizen",
     scale_factor="1",
     dec_places="0",
 )
@@ -237,7 +240,7 @@ TEST_3_EX = Value(
     ("response_status", "response_text", "expected_result"),
     [
         (200, TEST_2, TEST_2_EX),
-        (200, TEST_3, TEST_3_EX),
+        (200, TEST_4, TEST_4_EX),
     ],
 )
 async def test_get_data(monkeypatch, response_status, response_text, expected_result) -> None:
@@ -254,3 +257,15 @@ async def test_get_data(monkeypatch, response_status, response_text, expected_re
 
     resp = await eta.async_get_data("")
     assert resp == expected_result
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("value", "expected_sensor_type"),
+    [
+        (TEST_2_EX, EtaSensorType.SENSOR),
+        (TEST_4_EX, EtaSensorType.STRING_SENSOR),
+    ],
+)
+async def test_determine_sensor_type(value: Value, expected_sensor_type: EtaSensorType) -> None:
+    resp = determine_sensor_type(value)
+    assert resp == expected_sensor_type
