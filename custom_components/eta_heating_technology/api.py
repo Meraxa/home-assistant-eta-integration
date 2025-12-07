@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 import socket
-from typing import Literal
+from typing import Any, Literal
 
 import aiohttp
 import async_timeout
 from pydantic_xml import BaseXmlModel, attr, element
+
+from custom_components.eta_heating_technology.const import HTTP_OK
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -113,7 +115,7 @@ class Fub(BaseXmlModel):
 
     objects: list[Object] = element(tag="object", default=[])
 
-    def model_post_init(self, __context) -> None:
+    def model_post_init(self, context: Any) -> None:  # noqa: ARG002
         """Automatically update namespace after model creation."""
         for obj in self.objects:
             obj.namespace = self.sanitized_name
@@ -267,7 +269,7 @@ class Eta(BaseXmlModel, tag="eta"):
 class EtaApiClient:
     """Api Client for operations against the ETA api endpoint."""
 
-    def __init__(
+    def __init__(  # noqa: D107
         self,
         host: str,
         port: str,
@@ -304,31 +306,28 @@ class EtaApiClient:
             url=self.build_endpoint_url("/user/api"),
         )
 
-        # TODO @Meraxa: Replace with static value
-        if resp.status != 200:
+        if resp.status != HTTP_OK:
             return False
 
         eta = await self.parse_xml_response(resp)
         if eta.api is None:
-            raise EtaApiClientError("No API version found in response")
+            msg = "No API version found in response"
+            raise EtaApiClientError(msg)
 
         return eta.api.version == "1.2"
 
     async def async_get_data(self, url: str) -> Value:
         """Get a value from the ETA api endpoint."""
-        resp = await self._api_wrapper(
-            method="get", url=self.build_endpoint_url(endpoint=f"/user/var/{url}")
-        )
+        resp = await self._api_wrapper(method="get", url=self.build_endpoint_url(endpoint=f"/user/var/{url}"))
         eta = await self.parse_xml_response(resp)
         if eta.value is None:
-            raise EtaApiClientError("No value found in response")
+            msg = "No value found in response"
+            raise EtaApiClientError(msg)
         return eta.value
 
     async def async_parse_menu(self) -> Eta:
         """Get the xml menu listing from the ETA api and parse it to a datastructure."""
-        resp = await self._api_wrapper(
-            method="get", url=self.build_endpoint_url(endpoint="/user/menu")
-        )
+        resp = await self._api_wrapper(method="get", url=self.build_endpoint_url(endpoint="/user/menu"))
         return await self.parse_xml_response(resp)
 
     async def _api_wrapper(

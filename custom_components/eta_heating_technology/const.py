@@ -1,5 +1,6 @@
 """Constants for ETA heating technology."""
 
+import enum
 from logging import Logger, getLogger
 
 from homeassistant.components.sensor import SensorDeviceClass
@@ -36,8 +37,30 @@ ETA_SENSOR_UNITS = {
 }
 
 ETA_BINARY_SENSOR_UNITS_DE = {
-    "Ein": True,
-    "Aus": False,
-    "Eingeschaltet": True,
-    "Ausgeschaltet": False,
+    "1802": False,  # Aus
+    "1803": True,  # Ein
 }
+
+ETA_STRING_SENSOR_VALUES_DE = {
+    "2004": "Heizversuch",
+    "2005": "Zünden",
+    "2006": "Heizen",
+    "2008": "Glutabbrand wegen Entaschung",
+    "2012": "Bereit",
+    "2014": "Entaschen",
+    "2021": "Heizen",
+    "2023": "Stoker leeren",
+    "2024": "Füllen",
+}
+
+
+class EtaSensorType(enum.Enum):
+    """Enumeration of sensor types."""
+
+    SENSOR = "sensor"
+    BINARY_SENSOR = "binary_sensor"
+    STRING_SENSOR = "string_sensor"
+
+
+# Miscellaneous constants
+HTTP_OK = 200
