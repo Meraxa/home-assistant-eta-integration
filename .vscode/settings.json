@@ -9,5 +9,10 @@
     "files.trimFinalNewlines": true,
     "files.insertFinalNewline": true,
     "editor.formatOnSave": true,
-    "files.eol": "\n"
+    "files.eol": "\n",
+    "files.exclude": {
+        "**/.pytest_cache": true,
+        "**/.ruff_cache": true,
+        "**/__pycache__": true,
+    }
 }

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import socket
-from typing import Literal
+from typing import Any, Literal
 
 import aiohttp
 import async_timeout
@@ -115,7 +115,7 @@ class Fub(BaseXmlModel):
 
     objects: list[Object] = element(tag="object", default=[])
 
-    def model_post_init(self) -> None:
+    def model_post_init(self, context: Any) -> None:  # noqa: ARG002
         """Automatically update namespace after model creation."""
         for obj in self.objects:
             obj.namespace = self.sanitized_name
