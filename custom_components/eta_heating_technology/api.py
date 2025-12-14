@@ -169,6 +169,22 @@ class Error(BaseXmlModel):
         }
 
 
+class Success(BaseXmlModel):
+    """
+    Represents the xml element `<success ...>` returned by the ETA heating systems api.
+
+    E.g. `<success uri="/user/var/78/10101/0/0/12080"/>`.
+    """
+
+    uri: str = attr(name="uri")
+
+    def as_dict(self) -> dict:
+        """Convert the object to a dictionary."""
+        return {
+            "uri": self.uri,
+        }
+
+
 class Api(BaseXmlModel):
     """
     Represents the xml element `<api ...>` returned by the ETA heating systems api.
@@ -254,6 +270,7 @@ class Eta(BaseXmlModel, tag="eta"):
     value: Value | None = element(tag="value", default=None)
     menu: Menu | None = element(tag="menu", default=None)
     error: Error | None = element(tag="error", default=None)
+    success: Success | None = element(tag="success", default=None)
 
     def as_dict(self) -> dict:
         """Convert the object to a dictionary."""
@@ -325,6 +342,19 @@ class EtaApiClient:
             raise EtaApiClientError(msg)
         return eta.value
 
+    async def async_update_state(self, url: str, value: str, headers: dict | None = None) -> Error | Success:
+        """Update a value on the ETA api endpoint."""
+        data = f"value={value}"
+        resp = await self._api_wrapper(method="post", url=self.build_endpoint_url(endpoint=f"/user/var/{url}"), data=data, headers=headers)
+        eta = await self.parse_xml_response(resp)
+        if eta.error:
+            _LOGGER.error("Error updating value: %s", eta.error.error_message)
+            return eta.error
+        if eta.success:
+            return eta.success
+        msg = "No success or error found in response"
+        raise EtaApiClientError(msg)
+
     async def async_parse_menu(self) -> Eta:
         """Get the xml menu listing from the ETA api and parse it to a datastructure."""
         resp = await self._api_wrapper(method="get", url=self.build_endpoint_url(endpoint="/user/menu"))
@@ -334,7 +364,7 @@ class EtaApiClient:
         self,
         method: str,
         url: str,
-        data: dict | None = None,
+        data: dict | str | None = None,
         headers: dict | None = None,
     ) -> aiohttp.ClientResponse:
         """Get information from the API."""
@@ -344,7 +374,7 @@ class EtaApiClient:
                     method=method,
                     url=url,
                     headers=headers,
-                    json=data,
+                    data=data,
                 )
                 _verify_response_or_raise(response)
                 return response

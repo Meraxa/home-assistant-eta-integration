@@ -2,11 +2,13 @@ import aiohttp
 import pytest
 
 from custom_components.eta_heating_technology.api import (
+    Error,
     Eta,
     EtaApiClient,
     Fub,
     Menu,
     Object,
+    Success,
     Value,
 )
 from custom_components.eta_heating_technology.const import EtaSensorType
@@ -33,6 +35,12 @@ class TestResponse:
 
 
 def mock_get_request(response_status, response_text):
+    async def _mock(*args, **kwargs):
+        return TestResponse(response_status, response_text)
+
+    return _mock
+
+def mock_update_state(response_status, response_text):
     async def _mock(*args, **kwargs):
         return TestResponse(response_status, response_text)
 
@@ -207,6 +215,12 @@ TEST_2 = """
 </eta>
 """
 
+TEST_3 = """
+<eta xmlns="http://www.eta.co.at/rest/v1" version="1.0">
+    <value advTextOffset="1802" unit="" uri="/user/var/78/10101/0/0/12080" strValue="Aus" scaleFactor="1" decPlaces="0">1802</value>
+</eta>
+"""
+
 TEST_4 = """
 <eta xmlns="http://www.eta.co.at/rest/v1" version="1.0">
     <value advTextOffset="2000" unit="" uri="/user/var/24/10561/0/0/12000" strValue="Heizen" scaleFactor="1" decPlaces="0">2006</value>
@@ -223,6 +237,15 @@ TEST_2_EX = Value(
     dec_places="0",
 )
 
+TEST_3_EX = Value(
+    value="1802",
+    adv_text_offset="1802",
+    unit="",
+    uri="/user/var/78/10101/0/0/12080",
+    str_value="Aus",
+    scale_factor="1",
+    dec_places="0",
+)
 
 TEST_4_EX = Value(
     value="2006",
@@ -240,6 +263,7 @@ TEST_4_EX = Value(
     ("response_status", "response_text", "expected_result"),
     [
         (200, TEST_2, TEST_2_EX),
+        (200, TEST_3, TEST_3_EX),
         (200, TEST_4, TEST_4_EX),
     ],
 )
@@ -258,11 +282,57 @@ async def test_get_data(monkeypatch, response_status, response_text, expected_re
     resp = await eta.async_get_data("")
     assert resp == expected_result
 
+TURN_HEAT_CIRCUIT_ON_RESPONSE_SUCCESS = """
+<eta version="1.0" xmlns="http://www.eta.co.at/rest/v1">
+    <success uri="/user/var/78/10101/0/0/12080"/>
+</eta>
+"""
+
+TURN_HEAT_CIRCUIT_ON_RESPONSE_ERROR = """
+<eta version="1.0" xmlns="http://www.eta.co.at/rest/v1">
+    <error uri="/user/var/78/10101/0/0/12080">Value is out of range.</error>
+</eta>
+"""
+
+TURN_HEAT_CIRCUIT_ON_RESPONSE_SUCCESS_EX = Success(
+    uri="/user/var/78/10101/0/0/12080",
+)
+
+TURN_HEAT_CIRCUIT_ON_RESPONSE_ERROR_EX = Error(
+    uri="/user/var/78/10101/0/0/12080",
+    error_message="Value is out of range.",
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("response_status", "response_text", "expected_result"),
+    [
+        (200, TURN_HEAT_CIRCUIT_ON_RESPONSE_SUCCESS, TURN_HEAT_CIRCUIT_ON_RESPONSE_SUCCESS_EX),
+        (200, TURN_HEAT_CIRCUIT_ON_RESPONSE_ERROR, TURN_HEAT_CIRCUIT_ON_RESPONSE_ERROR_EX),
+    ],
+)
+async def test_update_state(monkeypatch, response_status, response_text, expected_result) -> None:
+    monkeypatch.setattr(
+        EtaApiClient,
+        "_api_wrapper",
+        mock_update_state(response_status, response_text),
+    )
+    eta = EtaApiClient(
+        host="192.168.178.59",
+        port="8080",
+        session=aiohttp.ClientSession(),
+    )
+
+    resp = await eta.async_update_state("uri", "value")
+    assert resp == expected_result
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("value", "expected_sensor_type"),
     [
         (TEST_2_EX, EtaSensorType.SENSOR),
+        (TEST_3_EX, EtaSensorType.BINARY_SENSOR),
         (TEST_4_EX, EtaSensorType.STRING_SENSOR),
     ],
 )
