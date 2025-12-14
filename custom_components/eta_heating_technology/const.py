@@ -36,7 +36,15 @@ ETA_SENSOR_UNITS = {
     "m³/h": SensorDeviceClass.VOLUME_FLOW_RATE,
 }
 
-ETA_BINARY_SENSOR_UNITS_DE = {
+
+class EtaSwitchStates(enum.Enum):
+    """Enumeration of ETA switch states."""
+
+    ON = "1803"
+    OFF = "1802"
+
+
+ETA_BINARY_SENSOR_VALUES_DE = {
     "1802": False,  # Aus
     "1803": True,  # Ein
 }
@@ -45,6 +53,7 @@ ETA_STRING_SENSOR_VALUES_DE = {
     "2004": "Heizversuch",
     "2005": "Zünden",
     "2006": "Heizen",
+    "2007": "Glutabbrand",
     "2008": "Glutabbrand wegen Entaschung",
     "2012": "Bereit",
     "2014": "Entaschen",

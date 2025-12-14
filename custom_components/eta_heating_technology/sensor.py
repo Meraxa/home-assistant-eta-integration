@@ -17,11 +17,12 @@ from homeassistant.components.sensor import (
 from custom_components.eta_heating_technology.api import Object, Value
 from custom_components.eta_heating_technology.const import (
     CHOSEN_ENTITIES,
-    ETA_BINARY_SENSOR_UNITS_DE,
+    ETA_BINARY_SENSOR_VALUES_DE,
     ETA_SENSOR_UNITS,
     ETA_STRING_SENSOR_VALUES_DE,
     EtaSensorType,
 )
+from custom_components.eta_heating_technology.utils import determine_sensor_type
 
 from .entity import EtaEntity
 
@@ -42,18 +43,6 @@ class ValueNoneError(Exception):
     """Exception indicating that a sensor value was `None`."""
 
 
-def determine_sensor_type(value: Value) -> EtaSensorType | None:
-    """Determine the sensor type based on the value's unit and string representation."""
-    sensor_unit = value.unit
-    if sensor_unit in ETA_SENSOR_UNITS:
-        return EtaSensorType.SENSOR
-    if value.value in ETA_BINARY_SENSOR_UNITS_DE:
-        return EtaSensorType.BINARY_SENSOR
-    if value.value in ETA_STRING_SENSOR_VALUES_DE:
-        return EtaSensorType.STRING_SENSOR
-    return None
-
-
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001
     config_entry: EtaConfigEntry,
@@ -63,10 +52,10 @@ async def async_setup_entry(
     chosen_objects: list[Object] = [Object.model_validate(obj) for obj in config_entry.data[CHOSEN_ENTITIES]]
     _LOGGER.info("sensor_keys: %s", chosen_objects)
 
-    eta_sensors: list[EtaSensor | EtaBinarySensor | EtaStringSensor] = []
-    for sensor in chosen_objects:
+    eta_sensors: list[EtaSensor | EtaStringSensor] = []
+    for obj in chosen_objects:
         api_client = config_entry.runtime_data.client
-        value: Value = await api_client.async_get_data(sensor.uri)
+        value: Value = await api_client.async_get_data(obj.uri)
         sensor_type = determine_sensor_type(value)
 
         if sensor_type is EtaSensorType.SENSOR:
@@ -74,41 +63,32 @@ async def async_setup_entry(
                 coordinator=config_entry.runtime_data.coordinator,
                 api_client=api_client,
                 entity_description=SensorEntityDescription(
-                    key=sensor.full_name,
-                    name=sensor.full_name,
+                    key=obj.full_name,
+                    name=obj.full_name,
                     device_class=ETA_SENSOR_UNITS[value.unit],
                     native_unit_of_measurement=value.unit,
                 ),
                 config_entry_id=config_entry.entry_id,
-                url=sensor.uri,
-            )
-        elif sensor_type is EtaSensorType.BINARY_SENSOR:
-            e = EtaBinarySensor(
-                coordinator=config_entry.runtime_data.coordinator,
-                api_client=api_client,
-                entity_description=BinarySensorEntityDescription(
-                    key=sensor.full_name,
-                    name=sensor.full_name,
-                ),
-                config_entry_id=config_entry.entry_id,
-                url=sensor.uri,
+                url=obj.uri,
             )
         elif sensor_type is EtaSensorType.STRING_SENSOR:
             e = EtaStringSensor(
                 coordinator=config_entry.runtime_data.coordinator,
                 api_client=api_client,
                 entity_description=SensorEntityDescription(
-                    key=sensor.full_name,
-                    name=sensor.full_name,
+                    key=obj.full_name,
+                    name=obj.full_name,
                 ),
                 config_entry_id=config_entry.entry_id,
-                url=sensor.uri,
+                url=obj.uri,
             )
+        if sensor_type is EtaSensorType.BINARY_SENSOR:
+            continue
         if sensor_type is None:
             _LOGGER.error(
                 "Unsupported sensor type for sensor: %s with uri: %s",
-                sensor.full_name,
-                sensor.uri,
+                obj.full_name,
+                obj.uri,
             )
             continue
         eta_sensors.append(e)
@@ -196,7 +176,7 @@ class EtaBinarySensor(EtaEntity, BinarySensorEntity):
             )
             _LOGGER.error(msg=msg)
             return None
-        boolean_value = ETA_BINARY_SENSOR_UNITS_DE.get(str(value.value), None)
+        boolean_value = ETA_BINARY_SENSOR_VALUES_DE.get(str(value.value), None)
         if boolean_value is None:
             msg = (
                 f"Calling native_value for: {self.entity_description.key} with "
