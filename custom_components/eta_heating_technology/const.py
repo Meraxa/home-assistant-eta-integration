@@ -55,11 +55,16 @@ ETA_STRING_SENSOR_VALUES_DE = {
     "2006": "Heizen",
     "2007": "Glutabbrand",
     "2008": "Glutabbrand wegen Entaschung",
+    "2009": "Glutabbrand da ausgeschaltet",
     "2012": "Bereit",
     "2014": "Entaschen",
+    "2016": "Störung",
+    "2017": "Glutabbrand wegen Störung",
+    "2020": "Lambdasonde kalibrieren",
     "2021": "Heizen",
     "2023": "Stoker leeren",
     "2024": "Füllen",
+    "2031": "Störung",
 }
 
 
