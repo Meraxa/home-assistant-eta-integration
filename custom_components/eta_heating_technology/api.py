@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import socket
-from typing import Any, Literal
+from typing import Any
 
 import aiohttp
-import async_timeout
 from pydantic_xml import BaseXmlModel, attr, element
 
-from custom_components.eta_heating_technology.const import HTTP_OK
+from .const import HTTP_OK
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ class Fub(BaseXmlModel):
         """Automatically update namespace after model creation."""
         for obj in self.objects:
             obj.namespace = self.sanitized_name
-            obj.full_name = f"{self.name}.{obj.sanitized_name}"
+            obj.full_name = f"{self.sanitized_name}.{obj.sanitized_name}"
             if obj.objects:
                 obj.update_namespace(obj.namespace)
 
@@ -215,35 +215,38 @@ class Value(BaseXmlModel):
 
     value: str
     adv_text_offset: str = attr(name="advTextOffset")
-    unit: Literal[
-        "°C",
-        "W",
-        "A",
-        "Hz",
-        "Pa",
-        "V",
-        "W/m²",
-        "bar",
-        "kW",
-        "kWh",
-        "kg",
-        "mV",
-        "s",
-        "%rH",
-        "m³/h",
-        "",
-    ] = attr(name="unit")
+    unit: str = attr(name="unit")
     uri: str = attr(name="uri")
     str_value: str = attr(name="strValue")
     scale_factor: str = attr(name="scaleFactor")
     dec_places: str = attr(name="decPlaces")
 
     @property
-    def scaled_value(self) -> str:
-        """Value scaled by the scale factor."""
+    def scaled_value(self) -> float | str:
+        """Value scaled by the scale factor.
+
+        Returns float for numeric (unit-bearing) values, str for unitless values.
+        Falls back to str_value on any conversion error.
+        """
         if self.unit != "":
-            return str(float(self.value) / float(self.scale_factor))
-        return self.unit
+            try:
+                divisor = float(self.scale_factor)
+                if divisor == 0:
+                    _LOGGER.warning(
+                        "scaleFactor is 0 for %s, returning raw strValue", self.uri
+                    )
+                    return self.str_value
+                return float(self.value) / divisor
+            except (ValueError, TypeError):
+                _LOGGER.warning(
+                    "Cannot convert value=%r / scaleFactor=%r to float for %s, "
+                    "returning strValue",
+                    self.value,
+                    self.scale_factor,
+                    self.uri,
+                )
+                return self.str_value
+        return self.str_value
 
     def as_dict(self) -> dict:
         """Convert the object to a dictionary."""
@@ -280,6 +283,7 @@ class Eta(BaseXmlModel, tag="eta"):
             "value": self.value.as_dict() if self.value else None,
             "menu": self.menu.as_dict() if self.menu else None,
             "error": self.error.as_dict() if self.error else None,
+            "success": self.success.as_dict() if self.success else None,
         }
 
 
@@ -298,7 +302,7 @@ class EtaApiClient:
 
     def build_endpoint_url(self, endpoint: str) -> str:
         """Build the endpoint URL."""
-        return "http://" + self._host + ":" + str(self._port) + endpoint
+        return f"http://{self._host}:{self._port}{endpoint}"
 
     async def parse_xml_response(self, resp: aiohttp.ClientResponse) -> Eta:
         """Parse the XML response text into an Eta object."""
@@ -369,7 +373,7 @@ class EtaApiClient:
     ) -> aiohttp.ClientResponse:
         """Get information from the API."""
         try:
-            async with async_timeout.timeout(10):
+            async with asyncio.timeout(30):
                 response = await self._session.request(
                     method=method,
                     url=url,

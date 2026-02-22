@@ -10,7 +10,7 @@ LOGGER: Logger = getLogger(__package__)
 NAME = "ETA Heating Technology"
 DEVICE_NAME = "ETA Heating"
 DOMAIN = "eta_heating_technology"
-ISSUE_URL = "https://github.com/meraxa/home-assistant_eta_integration/issues"
+ISSUE_URL = "https://github.com/Meraxa/home-assistant-eta-integration/issues"
 
 # Configuration and options
 CONF_HOST = "host"
