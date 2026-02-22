@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from custom_components.eta_heating_technology.const import (
+from .const import (
     CHOSEN_ENTITIES,
 )
 
@@ -29,14 +29,28 @@ class EtaDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
 
     config_entry: EtaConfigEntry
+    _cached_objects: list[Object] | None = None
+
+    @property
+    def chosen_objects(self) -> list[Object]:
+        """Return parsed chosen objects, cached after first access."""
+        if self._cached_objects is None:
+            self._cached_objects = [
+                Object.model_validate(obj)
+                for obj in self.config_entry.data[CHOSEN_ENTITIES]
+            ]
+        return self._cached_objects
+
+    def invalidate_cache(self) -> None:
+        """Invalidate the cached objects (call after config entry data changes)."""
+        self._cached_objects = None
 
     async def _async_update_data(self) -> Any:
         """Update data via library."""
         try:
-            _LOGGER.info("Calling EtaDataUpdateCoordinator _async_update_data")
+            _LOGGER.debug("Calling EtaDataUpdateCoordinator _async_update_data")
             data = {}
-            chosen_objects: list[Object] = [Object.model_validate(obj) for obj in self.config_entry.data[CHOSEN_ENTITIES]]
-            for obj in chosen_objects:
+            for obj in self.chosen_objects:
                 value = await self.config_entry.runtime_data.client.async_get_data(obj.uri)
                 data[obj.full_name] = value
         except EtaApiClientAuthenticationError as exception:

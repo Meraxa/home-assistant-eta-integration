@@ -1,0 +1,44 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "description": "Geben Sie die IP-Adresse und den Port des ETA-Heizungssystems ein.",
+                "data": {
+                    "host": "Host",
+                    "port": "Port"
+                }
+            },
+            "select_entities": {
+                "description": "Wählen Sie die Entitäten aus, die zu Home Assistant hinzugefügt werden sollen.",
+                "data": {
+                    "chosen_entities": "Entitäten"
+                }
+            }
+        },
+        "error": {
+            "url_broken": "Host und Port sind ungültig. Der ETA-API-Endpunkt ist mit dieser Kombination nicht erreichbar.",
+            "no_entities_selected": "Wählen Sie mindestens eine Entität aus."
+        },
+        "abort": {
+            "single_instance_allowed": "Es ist nur eine einzelne Instanz erlaubt.",
+            "already_configured": "Dieses ETA-Gerät ist bereits konfiguriert. Verwenden Sie die Optionen (Zahnrad-Symbol), um Entitäten zu ändern."
+        }
+    },
+    "options": {
+        "step": {
+            "select_entities": {
+                "description": "Wählen Sie die Entitäten aus, die überwacht werden sollen. Bereits ausgewählte Entitäten sind vorausgewählt.",
+                "data": {
+                    "chosen_entities": "Entitäten"
+                }
+            }
+        },
+        "error": {
+            "no_entities_selected": "Wählen Sie mindestens eine Entität aus."
+        },
+        "abort": {
+            "cannot_connect": "Verbindung zur ETA-API zum Auffinden von Entitäten nicht möglich.",
+            "no_entities": "Keine Entitäten auf dem ETA-Gerät gefunden."
+        }
+    }
+}

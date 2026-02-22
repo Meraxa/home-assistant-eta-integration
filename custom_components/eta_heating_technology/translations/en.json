@@ -16,11 +16,29 @@
             }
         },
         "error": {
-            "url_broken": "The host url and port don't are valid. The ETA API endpoint can not be reached with this combination.",
+            "url_broken": "The host URL and port aren't valid. The ETA API endpoint cannot be reached with this combination.",
             "no_entities_selected": "Select at least one entity."
         },
         "abort": {
-            "single_instance_allowed": "Only a single instance is allowed."
+            "single_instance_allowed": "Only a single instance is allowed.",
+            "already_configured": "This ETA device is already configured. Use the options (gear icon) to modify entities."
+        }
+    },
+    "options": {
+        "step": {
+            "select_entities": {
+                "description": "Select the entities you want to monitor. Previously selected entities are pre-selected.",
+                "data": {
+                    "chosen_entities": "Entities"
+                }
+            }
+        },
+        "error": {
+            "no_entities_selected": "Select at least one entity."
+        },
+        "abort": {
+            "cannot_connect": "Cannot connect to the ETA API to discover entities.",
+            "no_entities": "No entities found on the ETA device."
         }
     }
 }

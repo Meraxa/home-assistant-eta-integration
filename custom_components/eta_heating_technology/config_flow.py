@@ -6,7 +6,8 @@ import logging
 from typing import TYPE_CHECKING
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow
+from homeassistant.config_entries import ConfigFlow, OptionsFlow
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import (
     async_get_clientsession,
@@ -25,6 +26,17 @@ _LOGGER = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from aiohttp import ClientSession
     from homeassistant.config_entries import ConfigFlowResult
+
+
+def _get_objects_recursively(data: Fub | Object) -> list[Object]:
+    """Get all objects recursively from the data."""
+    objects: list[Object] = []
+    if isinstance(data, (Fub, Object)):
+        for obj in data.objects:
+            objects.extend(_get_objects_recursively(obj))
+        if isinstance(data, Object):
+            objects.append(data)
+    return objects
 
 
 class ConfigurationFlowData:
@@ -60,6 +72,14 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
     VERSION = 1
     configuration_flow_data: ConfigurationFlowData
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry,  # noqa: ARG004
+    ) -> EtaOptionsFlowHandler:
+        """Get the options flow for this handler."""
+        return EtaOptionsFlowHandler()
+
     def __init__(self) -> None:  # noqa: D107
         super().__init__()
         self._errors = {}
@@ -70,6 +90,11 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle a flow initialized by the user."""
         if user_input is not None:
+            await self.async_set_unique_id(
+                f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}"
+            )
+            self._abort_if_unique_id_configured()
+
             url_valid = await self._test_url(user_input[CONF_HOST], user_input[CONF_PORT])
             if url_valid:
                 possible_endpoints: Eta = await self._get_possible_endpoints(user_input[CONF_HOST], user_input[CONF_PORT])
@@ -88,16 +113,6 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
 
         return await self._show_config_form_user(user_input)
 
-    def get_objects_recursively(self, data: Fub | Object) -> list[Object]:
-        """Get all objects recursively from the data."""
-        objects: list[Object] = []
-        if isinstance(data, (Fub, Object)):
-            for obj in data.objects:
-                objects.extend(self.get_objects_recursively(obj))
-            if isinstance(data, Object):
-                objects.append(data)
-        return objects
-
     async def async_step_select_entities(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Second step in config flow to add a repo to watch."""
         if self.configuration_flow_data.discovered_entities is None:
@@ -115,7 +130,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
         objects: list[Object] = []
         for fub in fubs:
             # Get all objects recursively from the fub
-            objects.extend(self.get_objects_recursively(fub))
+            objects.extend(_get_objects_recursively(fub))
 
         if user_input is not None:
             # Check if the user has selected at least one entity
@@ -204,3 +219,85 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
         session: ClientSession = async_get_clientsession(self.hass)
         eta_client = EtaApiClient(host=host, port=port, session=session)
         return await eta_client.does_endpoint_exist()
+
+
+class EtaOptionsFlowHandler(OptionsFlow):
+    """Handle options flow for ETA Heating Technology.
+
+    Allows the user to modify which entities are monitored
+    without creating a new config entry.
+    """
+
+    async def async_step_init(
+        self,
+        user_input: dict | None = None,  # noqa: ARG002
+    ) -> ConfigFlowResult:
+        """Handle the initial step of the options flow."""
+        return await self.async_step_select_entities()
+
+    async def async_step_select_entities(
+        self,
+        user_input: dict | None = None,
+    ) -> ConfigFlowResult:
+        """Handle entity selection in options flow."""
+        errors: dict[str, str] = {}
+
+        host = self.config_entry.data[CONF_HOST]
+        port = self.config_entry.data[CONF_PORT]
+
+        session = async_get_clientsession(self.hass)
+        eta_client = EtaApiClient(host=host, port=port, session=session)
+
+        try:
+            discovered: Eta = await eta_client.async_parse_menu()
+        except EtaApiClientError:
+            return self.async_abort(reason="cannot_connect")
+
+        if discovered.menu is None or not discovered.menu.fubs:
+            return self.async_abort(reason="no_entities")
+
+        objects: list[Object] = []
+        for fub in discovered.menu.fubs:
+            objects.extend(_get_objects_recursively(fub))
+
+        # Get names of currently selected entities for pre-selection
+        current_entity_names: list[str] = []
+        for obj in self.config_entry.data.get(CHOSEN_ENTITIES, []):
+            if isinstance(obj, dict):
+                current_entity_names.append(obj.get("full_name", ""))
+            else:
+                current_entity_names.append(obj.full_name)
+
+        if user_input is not None:
+            if not user_input.get(CHOSEN_ENTITIES):
+                errors["base"] = "no_entities_selected"
+            else:
+                chosen = [
+                    obj
+                    for obj in objects
+                    if obj.full_name in user_input[CHOSEN_ENTITIES]
+                ]
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry,
+                    data={**self.config_entry.data, CHOSEN_ENTITIES: chosen},
+                )
+                return self.async_create_entry(title="", data={})
+
+        return self.async_show_form(
+            step_id="select_entities",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CHOSEN_ENTITIES,
+                        default=current_entity_names,
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[obj.full_name for obj in objects],
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                            multiple=True,
+                        )
+                    )
+                }
+            ),
+            errors=errors,
+        )
