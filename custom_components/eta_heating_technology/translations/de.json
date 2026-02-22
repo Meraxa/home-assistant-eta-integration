@@ -1,0 +1,70 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "description": "Geben Sie die IP-Adresse und den Port des ETA-Heizungssystems ein.",
+                "data": {
+                    "host": "Host",
+                    "port": "Port"
+                }
+            },
+            "select_fubs": {
+                "description": "Wählen Sie die Gruppen (Fubs) aus, die hinzugefügt werden sollen. Im nächsten Schritt können Sie einzelne Entitäten anpassen.",
+                "data": {
+                    "chosen_fubs": "Gruppen"
+                }
+            },
+            "select_entities": {
+                "description": "Alle Entitäten der ausgewählten Gruppen sind vorausgewählt. Entfernen Sie die, die Sie nicht benötigen.",
+                "data": {
+                    "chosen_entities": "Entitäten"
+                }
+            },
+            "confirm_switches": {
+                "description": "Die folgenden Entitäten wurden als Schalter (Ein/Aus) erkannt. Entfernen Sie die, die Sie nicht als Schalter verwenden möchten.",
+                "data": {
+                    "chosen_switches": "Schalter"
+                }
+            }
+        },
+        "error": {
+            "url_broken": "Host und Port sind ungültig. Der ETA-API-Endpunkt ist mit dieser Kombination nicht erreichbar.",
+            "no_entities_selected": "Wählen Sie mindestens eine Entität aus.",
+            "no_fubs_selected": "Wählen Sie mindestens eine Gruppe aus."
+        },
+        "abort": {
+            "single_instance_allowed": "Es ist nur eine einzelne Instanz erlaubt.",
+            "already_configured": "Dieses ETA-Gerät ist bereits konfiguriert. Verwenden Sie die Optionen (Zahnrad-Symbol), um Entitäten zu ändern."
+        }
+    },
+    "options": {
+        "step": {
+            "select_fubs": {
+                "description": "Wählen Sie die Gruppen (Fubs) aus, die überwacht werden sollen. Im nächsten Schritt können Sie einzelne Entitäten anpassen.",
+                "data": {
+                    "chosen_fubs": "Gruppen"
+                }
+            },
+            "select_entities": {
+                "description": "Entitäten neu hinzugefügter Gruppen sind vorausgewählt. Entfernen Sie die, die Sie nicht benötigen.",
+                "data": {
+                    "chosen_entities": "Entitäten"
+                }
+            },
+            "confirm_switches": {
+                "description": "Die folgenden Entitäten wurden als Schalter (Ein/Aus) erkannt. Entfernen Sie die, die Sie nicht als Schalter verwenden möchten.",
+                "data": {
+                    "chosen_switches": "Schalter"
+                }
+            }
+        },
+        "error": {
+            "no_entities_selected": "Wählen Sie mindestens eine Entität aus.",
+            "no_fubs_selected": "Wählen Sie mindestens eine Gruppe aus."
+        },
+        "abort": {
+            "cannot_connect": "Verbindung zur ETA-API zum Auffinden von Entitäten nicht möglich.",
+            "no_entities": "Keine Entitäten auf dem ETA-Gerät gefunden."
+        }
+    }
+}
