@@ -86,29 +86,27 @@ class EtaSwitch(EtaEntity, SwitchEntity):
         self.entity_description = entity_description
         self.url = url
         self.api_client = api_client
-        self.coordinator = coordinator
+
+    async def _async_set_state(self, state: EtaSwitchStates, action: str) -> None:
+        """Set the switch to the given state."""
+        self._attr_is_on = state == EtaSwitchStates.ON
+        self.async_write_ha_state()
+        response = await self.api_client.async_update_state(
+            url=self.url, value=state.value, headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
+        if isinstance(response, Error):
+            _LOGGER.error("Failed to %s switch %s: %s", action, self._attr_unique_id, response.error_message)
+        if isinstance(response, Success):
+            _LOGGER.info("Successfully %s switch %s", action, self._attr_unique_id)
+        await self.coordinator.async_request_refresh()
 
     async def async_turn_on(self) -> None:
         """Turn the entity on."""
-        response = await self.api_client.async_update_state(
-            url=self.url, value=EtaSwitchStates.ON.value, headers={"Content-Type": "application/x-www-form-urlencoded"}
-        )
-        if isinstance(response, Error):
-            _LOGGER.error("Failed to turn on switch %s: %s", self._attr_unique_id, response.error_message)
-        if isinstance(response, Success):
-            _LOGGER.info("Successfully turned on switch %s", self._attr_unique_id)
-        await self.coordinator.async_request_refresh()
+        await self._async_set_state(EtaSwitchStates.ON, "turn on")
 
     async def async_turn_off(self) -> None:
         """Turn the entity off."""
-        response = await self.api_client.async_update_state(
-            url=self.url, value=EtaSwitchStates.OFF.value, headers={"Content-Type": "application/x-www-form-urlencoded"}
-        )
-        if isinstance(response, Error):
-            _LOGGER.error("Failed to turn off switch %s: %s", self._attr_unique_id, response.error_message)
-        if isinstance(response, Success):
-            _LOGGER.info("Successfully turned off switch %s", self._attr_unique_id)
-        await self.coordinator.async_request_refresh()
+        await self._async_set_state(EtaSwitchStates.OFF, "turn off")
 
     @property
     def is_on(self) -> bool | None:
@@ -121,7 +119,7 @@ class EtaSwitch(EtaEntity, SwitchEntity):
         # Translate the value to a boolean
         value: Value | None = self.coordinator.data.get(self.entity_description.key)
         if value is None:
-            _LOGGER.error(
+            _LOGGER.warning(
                 "is_on for %s (%s) returned None",
                 self.entity_description.key,
                 self._attr_unique_id,

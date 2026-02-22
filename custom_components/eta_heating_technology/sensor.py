@@ -54,6 +54,14 @@ async def async_setup_entry(
         sensor_type = determine_sensor_type(value)
 
         if sensor_type is EtaSensorType.SENSOR:
+            # Use TOTAL_INCREASING for cumulative energy sensors,
+            # MEASUREMENT for instantaneous readings
+            if value.unit == "kWh":
+                state_class = SensorStateClass.TOTAL_INCREASING
+            elif value.unit == "kg":
+                state_class = SensorStateClass.TOTAL
+            else:
+                state_class = SensorStateClass.MEASUREMENT
             eta_sensors.append(
                 EtaSensor(
                     coordinator=coordinator,
@@ -62,7 +70,7 @@ async def async_setup_entry(
                         name=obj.full_name,
                         device_class=ETA_SENSOR_UNITS.get(value.unit),
                         native_unit_of_measurement=value.unit,
-                        state_class=SensorStateClass.MEASUREMENT,
+                        state_class=state_class,
                     ),
                     config_entry_id=config_entry.entry_id,
                 )
@@ -105,7 +113,7 @@ class EtaSensor(EtaEntity, SensorEntity):
         self.entity_description = entity_description
 
     @property
-    def native_value(self) -> str | None:
+    def native_value(self) -> float | str | None:
         """Return the native value of the sensor."""
         _LOGGER.debug(
             "Calling native_value for: %s with _attr_unique_id: %s",
@@ -114,8 +122,15 @@ class EtaSensor(EtaEntity, SensorEntity):
         )
         value: Value | None = self.coordinator.data.get(self.entity_description.key)
         if value is not None:
-            return value.scaled_value
-        _LOGGER.error(
+            scaled = value.scaled_value
+            # Ensure numeric sensors return float for HA statistics
+            if isinstance(scaled, (int, float)):
+                return scaled
+            try:
+                return float(scaled)
+            except (ValueError, TypeError):
+                return scaled
+        _LOGGER.warning(
             "native_value for %s (%s) returned None",
             self.entity_description.key,
             self._attr_unique_id,
@@ -147,7 +162,7 @@ class EtaStringSensor(EtaEntity, SensorEntity):
         )
         value: Value | None = self.coordinator.data.get(self.entity_description.key)
         if value is None:
-            _LOGGER.error(
+            _LOGGER.warning(
                 "native_value for %s (%s) returned None",
                 self.entity_description.key,
                 self._attr_unique_id,

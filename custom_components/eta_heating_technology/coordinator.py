@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -16,6 +17,7 @@ from .api import (
     EtaApiClientAuthenticationError,
     EtaApiClientError,
     Object,
+    Value,
 )
 
 if TYPE_CHECKING:
@@ -45,17 +47,34 @@ class EtaDataUpdateCoordinator(DataUpdateCoordinator):
         """Invalidate the cached objects (call after config entry data changes)."""
         self._cached_objects = None
 
-    async def _async_update_data(self) -> Any:
-        """Update data via library."""
+    async def _async_update_data(self) -> dict[str, Value]:
+        """Update data via library, fetching all entities concurrently."""
         try:
             _LOGGER.debug("Calling EtaDataUpdateCoordinator _async_update_data")
-            data = {}
-            for obj in self.chosen_objects:
-                value = await self.config_entry.runtime_data.client.async_get_data(obj.uri)
-                data[obj.full_name] = value
+            objects = self.chosen_objects
+            client = self.config_entry.runtime_data.client
+
+            # Fetch all values concurrently instead of sequentially
+            results = await asyncio.gather(
+                *(client.async_get_data(obj.uri) for obj in objects),
+                return_exceptions=True,
+            )
+
+            data: dict[str, Value] = {}
+            for obj, result in zip(objects, results):
+                if isinstance(result, EtaApiClientAuthenticationError):
+                    raise ConfigEntryAuthFailed(result) from result
+                if isinstance(result, Exception):
+                    _LOGGER.warning(
+                        "Failed to fetch data for %s: %s", obj.full_name, result
+                    )
+                    continue
+                data[obj.full_name] = result
+
+            return data
+        except ConfigEntryAuthFailed:
+            raise
         except EtaApiClientAuthenticationError as exception:
             raise ConfigEntryAuthFailed(exception) from exception
         except EtaApiClientError as exception:
             raise UpdateFailed(exception) from exception
-        else:
-            return data

@@ -62,7 +62,7 @@ class ConfigurationFlowData:
         return {
             CONF_HOST: self.host,
             CONF_PORT: self.port,
-            CHOSEN_ENTITIES: self.chosen_entities,
+            CHOSEN_ENTITIES: [obj.as_dict() for obj in self.chosen_entities],
         }
 
 
@@ -279,7 +279,7 @@ class EtaOptionsFlowHandler(OptionsFlow):
                 ]
                 self.hass.config_entries.async_update_entry(
                     self.config_entry,
-                    data={**self.config_entry.data, CHOSEN_ENTITIES: chosen},
+                    data={**self.config_entry.data, CHOSEN_ENTITIES: [obj.as_dict() for obj in chosen]},
                 )
                 return self.async_create_entry(title="", data={})
 
