@@ -1,5 +1,5 @@
 {
-    "name": "ETA Heating Technology",
-    "homeassistant": "2025.2.4",
+    "name": "ETA Heating Technology (TommiG1 Fork)",
+    "homeassistant": "2024.4.0",
     "hacs": "2.0.1"
 }

@@ -2,7 +2,38 @@
 
 **Date:** 2026-02-21  
 **Base Version:** 0.3.0  
-**Current Version:** 0.5.1
+**Current Version:** 0.6.0
+
+---
+
+## v0.6.0 – Bulk Entity Import & Switch Detection
+
+### Group Selection — Fub-based Bulk Import (`config_flow.py`)
+
+The config flow now uses a **three-step wizard** (four steps when switches are detected) instead of a single flat entity dropdown:
+
+| Step | Name | Description |
+|------|------|-------------|
+| 1 | **Host/Port** | Enter the ETA device address (unchanged) |
+| 2 | **Select Groups** | Choose entire Fubs (e.g. "Kessel", "Heizkreis", "Puffer") with entity counts shown — e.g. `Kessel (12)` |
+| 3 | **Select Entities** | All entities from the chosen groups are **pre-selected**. Deselect individual entities you don't need |
+| 4 | **Confirm Switches** | *(only shown when switches are detected)* Entities with binary on/off values (1802/1803) are presented separately for confirmation |
+
+**How switch detection works:** After entity selection, the integration fetches the current value of each chosen entity from the ETA API (throttled via `Semaphore(3)`). Entities whose value matches `ETA_BINARY_SENSOR_VALUES_DE` (codes 1802/1803) are classified as switches and shown in a separate confirmation step. All other entities become sensors.
+
+**Options Flow (gear icon):** The same three/four-step flow is available when modifying an existing config entry. Previously selected Fubs and entities are pre-selected. Entities from newly added Fubs are automatically pre-selected.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `config_flow.py` | Added `async_step_select_fubs`, `async_step_confirm_switches`, `_classify_entities` helper. Both `EtaFlowHandler` and `EtaOptionsFlowHandler` updated. |
+| `translations/en.json` | Added `select_fubs`, `confirm_switches` steps and `no_fubs_selected` error for config + options |
+| `translations/de.json` | Same as EN in German |
+
+### Manifest
+- Version bumped to `0.6.0`
+- Minimum HA version set to `2026.2.0`
 
 ---
 
