@@ -90,9 +90,13 @@ async def async_setup_entry(
             continue  # Handled by switch platform
         else:
             _LOGGER.warning(
-                "Unsupported sensor type for sensor: %s with uri: %s",
+                "Unsupported sensor type for sensor: %s with uri: %s "
+                "(value=%r, unit=%r, str_value=%r)",
                 obj.full_name,
                 obj.uri,
+                value.value,
+                value.unit,
+                value.str_value,
             )
 
     async_add_entities(eta_sensors)
@@ -130,7 +134,7 @@ class EtaSensor(EtaEntity, SensorEntity):
                 return float(scaled)
             except (ValueError, TypeError):
                 return scaled
-        _LOGGER.warning(
+        _LOGGER.debug(
             "native_value for %s (%s) returned None",
             self.entity_description.key,
             self._attr_unique_id,
@@ -162,7 +166,7 @@ class EtaStringSensor(EtaEntity, SensorEntity):
         )
         value: Value | None = self.coordinator.data.get(self.entity_description.key)
         if value is None:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "native_value for %s (%s) returned None",
                 self.entity_description.key,
                 self._attr_unique_id,
@@ -175,10 +179,5 @@ class EtaStringSensor(EtaEntity, SensorEntity):
         # This supports all state code ranges (2000, 4000, etc.)
         if value.str_value:
             return value.str_value
-        _LOGGER.warning(
-            "No string mapping and no strValue for value %s of %s (%s)",
-            value.value,
-            self.entity_description.key,
-            self._attr_unique_id,
-        )
-        return None
+        # Last resort: return raw value as string
+        return str(value.value)

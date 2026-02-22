@@ -48,19 +48,28 @@ class EtaDataUpdateCoordinator(DataUpdateCoordinator):
         self._cached_objects = None
 
     async def _async_update_data(self) -> dict[str, Value]:
-        """Update data via library, fetching all entities concurrently."""
+        """Update data via library, fetching entities with limited concurrency."""
         try:
             _LOGGER.debug("Calling EtaDataUpdateCoordinator _async_update_data")
             objects = self.chosen_objects
             client = self.config_entry.runtime_data.client
 
-            # Fetch all values concurrently instead of sequentially
+            # Limit concurrent requests to avoid overwhelming the ETA device
+            sem = asyncio.Semaphore(3)
+
+            async def _fetch(obj: Object) -> Value:
+                async with sem:
+                    return await client.async_get_data(obj.uri)
+
             results = await asyncio.gather(
-                *(client.async_get_data(obj.uri) for obj in objects),
+                *(_fetch(obj) for obj in objects),
                 return_exceptions=True,
             )
 
             data: dict[str, Value] = {}
+            # Preserve previous data for entities that fail to fetch
+            if self.data:
+                data.update(self.data)
             for obj, result in zip(objects, results):
                 if isinstance(result, EtaApiClientAuthenticationError):
                     raise ConfigEntryAuthFailed(result) from result

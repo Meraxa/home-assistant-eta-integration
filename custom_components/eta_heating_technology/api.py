@@ -373,7 +373,7 @@ class EtaApiClient:
     ) -> aiohttp.ClientResponse:
         """Get information from the API."""
         try:
-            async with asyncio.timeout(10):
+            async with asyncio.timeout(30):
                 response = await self._session.request(
                     method=method,
                     url=url,

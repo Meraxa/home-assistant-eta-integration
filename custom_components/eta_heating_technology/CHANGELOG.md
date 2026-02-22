@@ -2,7 +2,23 @@
 
 **Date:** 2026-02-21  
 **Base Version:** 0.3.0  
-**Current Version:** 0.5.0
+**Current Version:** 0.5.1
+
+---
+
+## v0.5.1 – Stability & Timeout Handling
+
+### Sensor Detection (`utils.py`)
+- **Unconditional fallback**: `determine_sensor_type` now always returns `STRING_SENSOR` as a last resort instead of `None`. Fixes edge cases like `Heizkreis.Ausgänge` where `value='0'`, `unit=''`, `str_value=''` fell through all existing checks and caused the entity to be silently skipped.
+
+### String Sensor Robustness (`sensor.py`)
+- **Raw value fallback**: `EtaStringSensor.native_value` returns `str(value.value)` as a last-resort fallback when both the state-code mapping and `str_value` are empty. Prevents the sensor from returning `None` for entities with only a numeric code.
+- **Startup log noise reduced**: `EtaSensor.native_value` warning for `None` values downgraded from `warning` to `debug` — these are expected during startup when the coordinator hasn't completed its first full cycle.
+
+### Concurrency & Timeouts (`coordinator.py`, `api.py`)
+- **Request throttling**: Added `asyncio.Semaphore(3)` to limit concurrent API requests. The ETA device was overwhelmed by 18+ simultaneous HTTP requests during coordinator updates, causing widespread timeouts.
+- **Data preservation**: When individual entity fetches fail, the coordinator now preserves the previous `self.data` instead of returning an incomplete dataset. Entities keep their last known values instead of going `unavailable`.
+- **Timeout increase**: `asyncio.timeout` in `_api_wrapper` raised from 10 s to 30 s to accommodate the slower response times when the ETA device is under load.
 
 ---
 

@@ -13,8 +13,6 @@ def determine_sensor_type(value: Value) -> EtaSensorType | None:
         return EtaSensorType.BINARY_SENSOR
     if value.value in ETA_STRING_SENSOR_VALUES_DE:
         return EtaSensorType.STRING_SENSOR
-    # Fallback: unitless values with a non-empty strValue are string sensors
-    # This covers all ETA state code ranges (2000, 4000, etc.)
-    if value.unit == "" and value.str_value:
-        return EtaSensorType.STRING_SENSOR
-    return None
+    # Fallback: any unrecognized value is treated as a string sensor
+    # (covers output states, unknown codes, unitless numeric values, etc.)
+    return EtaSensorType.STRING_SENSOR
