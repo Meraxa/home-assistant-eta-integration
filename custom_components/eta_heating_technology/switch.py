@@ -13,8 +13,8 @@ from .const import (
     EtaSensorType,
     EtaSwitchStates,
 )
-from .utils import determine_sensor_type
 from .entity import EtaEntity
+from .utils import determine_sensor_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .api import EtaApiClient
-
     from .coordinator import EtaDataUpdateCoordinator
     from .data import EtaConfigEntry
 

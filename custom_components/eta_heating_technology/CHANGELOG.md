@@ -1,12 +1,6 @@
-# ETA Heating Technology – Code Review & Changes
+# CHANGELOG
 
-**Date:** 2026-02-21  
-**Base Version:** 0.3.0  
-**Current Version:** 0.6.0
-
----
-
-## v0.6.0 – Bulk Entity Import & Switch Detection
+## v0.4.0 – Bulk Entity Import & Switch Detection
 
 ### Group Selection — Fub-based Bulk Import (`config_flow.py`)
 
@@ -35,10 +29,6 @@ The config flow now uses a **three-step wizard** (four steps when switches are d
 - Version bumped to `0.6.0`
 - Minimum HA version set to `2026.2.0`
 
----
-
-## v0.5.1 – Stability & Timeout Handling
-
 ### Sensor Detection (`utils.py`)
 - **Unconditional fallback**: `determine_sensor_type` now always returns `STRING_SENSOR` as a last resort instead of `None`. Fixes edge cases like `Heizkreis.Ausgänge` where `value='0'`, `unit=''`, `str_value=''` fell through all existing checks and caused the entity to be silently skipped.
 
@@ -50,10 +40,6 @@ The config flow now uses a **three-step wizard** (four steps when switches are d
 - **Request throttling**: Added `asyncio.Semaphore(3)` to limit concurrent API requests. The ETA device was overwhelmed by 18+ simultaneous HTTP requests during coordinator updates, causing widespread timeouts.
 - **Data preservation**: When individual entity fetches fail, the coordinator now preserves the previous `self.data` instead of returning an incomplete dataset. Entities keep their last known values instead of going `unavailable`.
 - **Timeout increase**: `asyncio.timeout` in `_api_wrapper` raised from 10 s to 30 s to accommodate the slower response times when the ETA device is under load.
-
----
-
-## v0.5.0 – Robustness, Performance & HA Best Practices
 
 ### Crash Prevention (`api.py`)
 - **`ZeroDivisionError`**: `scaled_value` now guards against `scaleFactor="0"` and falls back to `strValue`
@@ -85,10 +71,6 @@ The config flow now uses a **three-step wizard** (four steps when switches are d
 - Added `"homeassistant": "2024.4.0"` minimum version requirement
 - Version bumped to `0.5.0`
 
----
-
-## v0.4.0 – String Sensor Detection & strValue Fallback
-
 ### String Sensor Detection
 
 | Change | Files | Impact |
@@ -99,29 +81,23 @@ The config flow now uses a **three-step wizard** (four steps when switches are d
 
 **Why:** The ETA system uses different code ranges per fub (e.g. 2000-range for HK/Puffer, 4000-range for Kessel). The old code only mapped 2000-range codes, so entities like *Kessel Betriebszustand* were silently skipped. Now **all** state entities work out of the box.
 
----
-
-## v0.3.0 → v0.4.0 – Initial Code Review & Fixes
-
 ### Critical Bug Fixes
 
 #### 1. Broken control flow in switch setup (`switch.py`)
-The entity setup loop had unreachable code — the `sensor_type is None` error check could never execute because the preceding `sensor_type is not BINARY_SENSOR` check already triggered `continue` for `None`. Switches were silently not added.  
+The entity setup loop had unreachable code — the `sensor_type is None` error check could never execute because the preceding `sensor_type is not BINARY_SENSOR` check already triggered `continue` for `None`. Switches were silently not added.
 **Fix:** Clean `if` block with direct `append`.
 
 #### 2. Potential `UnboundLocalError` in sensor setup (`sensor.py`)
-Separate `if` statements (instead of `if/elif/else`) meant the variable `e` could be unassigned when appending, causing a crash for unexpected sensor types.  
+Separate `if` statements (instead of `if/elif/else`) meant the variable `e` could be unassigned when appending, causing a crash for unexpected sensor types.
 **Fix:** Restructured to proper `if/elif/else` chain with inline `append`.
 
 #### 3. `scaled_value` returned empty string (`api.py`)
-When a value had no unit (binary/string sensors), `scaled_value` returned `""` instead of the actual value.  
+When a value had no unit (binary/string sensors), `scaled_value` returned `""` instead of the actual value.
 **Fix:** Returns `self.str_value` for unitless values.
 
 #### 4. Inconsistent name sanitization (`api.py`)
-`Fub.model_post_init` used raw `self.name` for `full_name` but `self.sanitized_name` for `namespace`, causing naming mismatches between top-level and nested objects.  
+`Fub.model_post_init` used raw `self.name` for `full_name` but `self.sanitized_name` for `namespace`, causing naming mismatches between top-level and nested objects.
 **Fix:** Uses `self.sanitized_name` consistently.
-
----
 
 ## Duplicate Device Fix
 
@@ -140,9 +116,7 @@ Every time a new config entry was added (e.g. to monitor additional entities), a
 | `entity.py` | Entity `DeviceInfo.identifiers` changed to match `"host:port"` |
 | `config_flow.py` | `unique_id` set to `"host:port"` with `_abort_if_unique_id_configured()` |
 
----
-
-## Options Flow (New Feature)
+### Options Flow (New Feature)
 
 Added an **Options Flow** so entities can be added or removed from an existing config entry — no need to create a new entry.
 
@@ -154,9 +128,7 @@ Added an **Options Flow** so entities can be added or removed from an existing c
 
 **Usage:** Click the gear icon (⚙️) on the existing config entry → select/deselect entities → save.
 
----
-
-## Performance & Robustness
+### Performance & Robustness
 
 | Change | Files | Impact |
 |--------|-------|--------|
@@ -166,18 +138,14 @@ Added an **Options Flow** so entities can be added or removed from an existing c
 | `ETA_SENSOR_UNITS[unit]` → `.get(unit)` | `sensor.py` | Graceful handling of unknown units (returns `None` device class) |
 | `Eta.as_dict()` missing `success` field | `api.py` | Complete serialization |
 
----
-
-## Sensor Improvements
+### Sensor Improvements
 
 | Change | Files | Impact |
 |--------|-------|--------|
 | Added `SensorStateClass.MEASUREMENT` | `sensor.py` | Numeric sensors now appear in HA **long-term statistics** and the **Energy dashboard** |
 | Removed unused `api_client`/`url` from sensor entities | `sensor.py` | Cleaner constructors — only switches need direct API access |
 
----
-
-## Code Quality Improvements
+### Code Quality Improvements
 
 | Change | Files |
 |--------|-------|
@@ -194,9 +162,7 @@ Added an **Options Flow** so entities can be added or removed from an existing c
 | `build_endpoint_url` uses f-string instead of concatenation | `api.py` |
 | Fixed `ISSUE_URL` mismatch (const.py vs manifest.json) | `const.py` |
 
----
-
-## Translations
+### Translations
 
 | Change | Files |
 |--------|-------|
@@ -205,9 +171,7 @@ Added an **Options Flow** so entities can be added or removed from an existing c
 | Added `already_configured` abort message (EN) | `translations/en.json` |
 | Added complete German translations | `translations/de.json` (new) |
 
----
-
-## Branding
+### Branding
 
 Icon and logo files for the integration banner were prepared using the official ETA Heiztechnik icon from eta.co.at.
 

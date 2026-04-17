@@ -11,14 +11,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 
-from .api import Value
 from .const import (
     ETA_SENSOR_UNITS,
     ETA_STRING_SENSOR_VALUES_DE,
     EtaSensorType,
 )
-from .utils import determine_sensor_type
 from .entity import EtaEntity
+from .utils import determine_sensor_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +26,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+    from .api import Value
     from .coordinator import EtaDataUpdateCoordinator
     from .data import EtaConfigEntry
 
@@ -90,8 +90,7 @@ async def async_setup_entry(
             continue  # Handled by switch platform
         else:
             _LOGGER.warning(
-                "Unsupported sensor type for sensor: %s with uri: %s "
-                "(value=%r, unit=%r, str_value=%r)",
+                "Unsupported sensor type for sensor: %s with uri: %s (value=%r, unit=%r, str_value=%r)",
                 obj.full_name,
                 obj.uri,
                 value.value,

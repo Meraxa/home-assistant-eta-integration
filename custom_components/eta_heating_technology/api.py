@@ -223,7 +223,8 @@ class Value(BaseXmlModel):
 
     @property
     def scaled_value(self) -> float | str:
-        """Value scaled by the scale factor.
+        """
+        Value scaled by the scale factor.
 
         Returns float for numeric (unit-bearing) values, str for unitless values.
         Falls back to str_value on any conversion error.
@@ -232,15 +233,12 @@ class Value(BaseXmlModel):
             try:
                 divisor = float(self.scale_factor)
                 if divisor == 0:
-                    _LOGGER.warning(
-                        "scaleFactor is 0 for %s, returning raw strValue", self.uri
-                    )
+                    _LOGGER.warning("scaleFactor is 0 for %s, returning raw strValue", self.uri)
                     return self.str_value
                 return float(self.value) / divisor
             except (ValueError, TypeError):
                 _LOGGER.warning(
-                    "Cannot convert value=%r / scaleFactor=%r to float for %s, "
-                    "returning strValue",
+                    "Cannot convert value=%r / scaleFactor=%r to float for %s, returning strValue",
                     self.value,
                     self.scale_factor,
                     self.uri,

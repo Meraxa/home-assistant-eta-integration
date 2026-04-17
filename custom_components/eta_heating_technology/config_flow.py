@@ -20,9 +20,9 @@ from .const import (
     CONF_HOST,
     CONF_PORT,
     DOMAIN,
+    EtaSensorType,
 )
 from .utils import determine_sensor_type
-from .const import EtaSensorType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(
-        config_entry,  # noqa: ARG004
+        config_entry,  # noqa: ANN001, ARG004
     ) -> EtaOptionsFlowHandler:
         """Get the options flow for this handler."""
         return EtaOptionsFlowHandler()
@@ -99,9 +99,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle a flow initialized by the user."""
         if user_input is not None:
-            await self.async_set_unique_id(
-                f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}"
-            )
+            await self.async_set_unique_id(f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}")
             self._abort_if_unique_id_configured()
 
             url_valid = await self._test_url(user_input[CONF_HOST], user_input[CONF_PORT])
@@ -153,9 +151,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
                 self._errors["base"] = "no_entities_selected"
                 return await self._show_config_form_endpoint(objects, defaults=all_names)
 
-            self.configuration_flow_data.chosen_entities = [
-                obj for obj in objects if obj.full_name in user_input[CHOSEN_ENTITIES]
-            ]
+            self.configuration_flow_data.chosen_entities = [obj for obj in objects if obj.full_name in user_input[CHOSEN_ENTITIES]]
 
             # Classify entities by fetching their values
             sensor_names, switch_names = await self._classify_entities(
@@ -187,8 +183,7 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
             # Final chosen = sensors + confirmed switches
             keep_names = set(self.configuration_flow_data.sensor_names) | set(confirmed_switches)
             self.configuration_flow_data.chosen_entities = [
-                obj for obj in self.configuration_flow_data.chosen_entities
-                if obj.full_name in keep_names
+                obj for obj in self.configuration_flow_data.chosen_entities if obj.full_name in keep_names
             ]
             _LOGGER.debug(
                 "Final entities (sensors=%d, switches=%d): %s",
@@ -236,9 +231,11 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
         return fubs
 
     async def _classify_entities(
-        self, objects: list[Object],
+        self,
+        objects: list[Object],
     ) -> tuple[list[str], list[str]]:
-        """Fetch values for all objects and classify into sensors vs switches.
+        """
+        Fetch values for all objects and classify into sensors vs switches.
 
         Returns (sensor_names, switch_names).
         """
@@ -289,7 +286,9 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
         )
 
     async def _show_config_form_fubs(
-        self, fubs: list[Fub], defaults: list[str] | None = None,
+        self,
+        fubs: list[Fub],
+        defaults: list[str] | None = None,
     ) -> ConfigFlowResult:
         """Show the form to select Fubs (entity groups)."""
         fub_options = [
@@ -319,7 +318,9 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
         )
 
     async def _show_config_form_endpoint(
-        self, objects: list[Object], defaults: list[str] | None = None,
+        self,
+        objects: list[Object],
+        defaults: list[str] | None = None,
     ) -> ConfigFlowResult:
         """Show the configuration form to select which endpoints should become entities."""
         return self.async_show_form(
@@ -377,7 +378,8 @@ class EtaFlowHandler(ConfigFlow, domain=DOMAIN):
 
 
 class EtaOptionsFlowHandler(OptionsFlow):
-    """Handle options flow for ETA Heating Technology.
+    """
+    Handle options flow for ETA Heating Technology.
 
     Allows the user to modify which entities are monitored
     without creating a new config entry.
@@ -485,10 +487,7 @@ class EtaOptionsFlowHandler(OptionsFlow):
             if not user_input.get(CHOSEN_ENTITIES):
                 errors["base"] = "no_entities_selected"
             else:
-                self._chosen_objects = [
-                    obj for obj in objects
-                    if obj.full_name in user_input[CHOSEN_ENTITIES]
-                ]
+                self._chosen_objects = [obj for obj in objects if obj.full_name in user_input[CHOSEN_ENTITIES]]
 
                 # Classify entities by fetching their values
                 sensor_names, switch_names = await self._classify_entities(self._chosen_objects)
@@ -509,9 +508,7 @@ class EtaOptionsFlowHandler(OptionsFlow):
                 return self.async_create_entry(title="", data={})
 
         # Build defaults: existing entities stay selected, new fubs get all selected
-        previously_configured_fubs = {
-            (n.split(".")[0] if "." in n else n) for n in current_entity_names
-        }
+        previously_configured_fubs = {(n.split(".")[0] if "." in n else n) for n in current_entity_names}
         defaults = []
         for name in all_names:
             fub_name = name.split(".")[0] if "." in name else name
@@ -549,10 +546,7 @@ class EtaOptionsFlowHandler(OptionsFlow):
         if user_input is not None:
             confirmed_switches = user_input.get(CHOSEN_SWITCHES, [])
             keep_names = set(self._sensor_names) | set(confirmed_switches)
-            final_objects = [
-                obj for obj in self._chosen_objects
-                if obj.full_name in keep_names
-            ]
+            final_objects = [obj for obj in self._chosen_objects if obj.full_name in keep_names]
             self.hass.config_entries.async_update_entry(
                 self.config_entry,
                 data={
@@ -582,7 +576,8 @@ class EtaOptionsFlowHandler(OptionsFlow):
         )
 
     async def _classify_entities(
-        self, objects: list[Object],
+        self,
+        objects: list[Object],
     ) -> tuple[list[str], list[str]]:
         """Fetch values for all objects and classify into sensors vs switches."""
         host = self.config_entry.data[CONF_HOST]
