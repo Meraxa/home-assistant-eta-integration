@@ -50,6 +50,7 @@ ETA_BINARY_SENSOR_VALUES_DE = {
 }
 
 ETA_STRING_SENSOR_VALUES_DE = {
+    "2000": "Ausgeschaltet",
     "2004": "Heizversuch",
     "2005": "Zünden",
     "2006": "Heizen",
