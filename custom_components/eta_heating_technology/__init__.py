@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 from homeassistant.const import Platform
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.loader import async_get_loaded_integration
 
 from .api import EtaApiClient
 from .const import CONF_HOST, CONF_PORT, DEVICE_NAME, DOMAIN, LOGGER, NAME
@@ -50,7 +49,6 @@ async def async_setup_entry(
             port=config_entry.data[CONF_PORT],
             session=async_get_clientsession(hass),
         ),
-        integration=async_get_loaded_integration(hass, config_entry.domain),
         coordinator=coordinator,
     )
 
@@ -58,12 +56,12 @@ async def async_setup_entry(
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
         config_entry_id=config_entry.entry_id,
-        identifiers={(DOMAIN, config_entry.entry_id)},
+        identifiers={(DOMAIN, f"{config_entry.data[CONF_HOST]}:{config_entry.data[CONF_PORT]}")},
         manufacturer=NAME,
         name=DEVICE_NAME,
     )
 
-    _LOGGER.info("Config entry data keys: %s", config_entry.data.keys())
+    _LOGGER.debug("Config entry data keys: %s", config_entry.data.keys())
 
     # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
     await coordinator.async_config_entry_first_refresh()
@@ -92,5 +90,4 @@ async def async_reload_entry(
     config_entry: EtaConfigEntry,
 ) -> None:
     """Reload config entry."""
-    await async_unload_entry(hass, config_entry)
-    await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_reload(config_entry.entry_id)
