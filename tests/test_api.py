@@ -12,7 +12,7 @@ from custom_components.eta_heating_technology.api import (
     Value,
 )
 from custom_components.eta_heating_technology.const import EtaSensorType
-from custom_components.eta_heating_technology.sensor import determine_sensor_type
+from custom_components.eta_heating_technology.utils import determine_sensor_type
 
 VALID_VERSION_REQUEST = """<eta xmlns="http://www.eta.co.at/rest/v1" version="1.0">
     <api version="1.2" uri="/user/api"/>

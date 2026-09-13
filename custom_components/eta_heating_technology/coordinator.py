@@ -70,10 +70,16 @@ class EtaDataUpdateCoordinator(DataUpdateCoordinator):
                 if isinstance(result, EtaApiClientAuthenticationError):
                     raise ConfigEntryAuthFailed(result) from result  # noqa: TRY301
                 if isinstance(result, Exception):
-                    _LOGGER.warning("Failed to fetch data for %s: %s", obj.full_name, result)
+                    _LOGGER.warning(
+                        "Failed to fetch data for %s (%s): %s",
+                        obj.full_name,
+                        obj.uri,
+                        result,
+                    )
                     continue
                 if isinstance(result, Value):
-                    data[obj.full_name] = result
+                    # Key by URI: full_name can collide for inactive twin endpoints
+                    data[obj.uri] = result
             return data  # noqa: TRY300
         except ConfigEntryAuthFailed:
             raise

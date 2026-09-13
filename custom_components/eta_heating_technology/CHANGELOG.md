@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## v0.4.2 – Fix duplicate menu names overwriting entity values
+
+ETA exposes inactive twin endpoints that share the same menu path/`full_name`
+but have different URIs (e.g. Heizgrenze für Heizen: `/…/12096` = `15 °C` vs
+`/…/14116` = `xxx`). The coordinator previously keyed data by `full_name`, so
+the second fetch overwrote the first and sensors showed `xxx`.
+
+### Fix
+- Coordinator stores values keyed by **URI**
+- Sensor/switch look up coordinator data by URI
+- `unique_id` stays `full_name` when unique (preserves entity registry); uses URI only on collisions
+- Display names append the last URI segment when `full_name` collides
+
+**Note:** Duplicate menu entries (e.g. Heizgrenze) get new entity IDs. Remove the
+orphaned `xxx` entity from the entity registry after upgrading.
+
 ## v0.4.0 – Bulk Entity Import & Switch Detection
 
 ### Group Selection — Fub-based Bulk Import (`config_flow.py`)

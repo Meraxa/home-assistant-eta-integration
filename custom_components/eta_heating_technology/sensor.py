@@ -17,7 +17,12 @@ from .const import (
     EtaSensorType,
 )
 from .entity import EtaEntity
-from .utils import determine_sensor_type
+from .utils import (
+    determine_sensor_type,
+    entity_data_key,
+    entity_display_name,
+    entity_unique_key,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,11 +52,14 @@ async def async_setup_entry(
     # Fetch initial values to determine types (use coordinator data if available)
     eta_sensors: list[EtaSensor | EtaStringSensor] = []
     for obj in chosen_objects:
-        if coordinator.data and obj.full_name in coordinator.data:
-            value = coordinator.data[obj.full_name]
+        data_key = entity_data_key(obj)
+        unique_key = entity_unique_key(obj, chosen_objects)
+        if coordinator.data and data_key in coordinator.data:
+            value = coordinator.data[data_key]
         else:
             value = await api_client.async_get_data(obj.uri)
         sensor_type = determine_sensor_type(value)
+        display_name = entity_display_name(obj, chosen_objects)
 
         if sensor_type is EtaSensorType.SENSOR:
             # Use TOTAL_INCREASING for cumulative energy sensors,
@@ -66,13 +74,14 @@ async def async_setup_entry(
                 EtaSensor(
                     coordinator=coordinator,
                     entity_description=SensorEntityDescription(
-                        key=obj.full_name,
-                        name=obj.full_name,
+                        key=unique_key,
+                        name=display_name,
                         device_class=ETA_SENSOR_UNITS.get(value.unit),
                         native_unit_of_measurement=value.unit,
                         state_class=state_class,
                     ),
                     config_entry_id=config_entry.entry_id,
+                    data_key=data_key,
                 )
             )
         elif sensor_type is EtaSensorType.STRING_SENSOR:
@@ -80,10 +89,11 @@ async def async_setup_entry(
                 EtaStringSensor(
                     coordinator=coordinator,
                     entity_description=SensorEntityDescription(
-                        key=obj.full_name,
-                        name=obj.full_name,
+                        key=unique_key,
+                        name=display_name,
                     ),
                     config_entry_id=config_entry.entry_id,
+                    data_key=data_key,
                 )
             )
         elif sensor_type is EtaSensorType.BINARY_SENSOR:
@@ -109,11 +119,13 @@ class EtaSensor(EtaEntity, SensorEntity):
         coordinator: EtaDataUpdateCoordinator,
         config_entry_id: str,
         entity_description: SensorEntityDescription,
+        data_key: str,
     ) -> None:
         """Initialize the sensor class."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{config_entry_id}-{entity_description.key}"
         self.entity_description = entity_description
+        self._data_key = data_key
 
     @property
     def native_value(self) -> float | str | None:
@@ -123,7 +135,7 @@ class EtaSensor(EtaEntity, SensorEntity):
             self.entity_description.key,
             self._attr_unique_id,
         )
-        value: Value | None = self.coordinator.data.get(self.entity_description.key)
+        value: Value | None = self.coordinator.data.get(self._data_key)
         if value is not None:
             scaled = value.scaled_value
             # Ensure numeric sensors return float for HA statistics
@@ -149,11 +161,13 @@ class EtaStringSensor(EtaEntity, SensorEntity):
         coordinator: EtaDataUpdateCoordinator,
         config_entry_id: str,
         entity_description: SensorEntityDescription,
+        data_key: str,
     ) -> None:
         """Initialize the sensor class."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{config_entry_id}-{entity_description.key}"
         self.entity_description = entity_description
+        self._data_key = data_key
 
     @property
     def native_value(self) -> str | None:
@@ -163,7 +177,7 @@ class EtaStringSensor(EtaEntity, SensorEntity):
             self.entity_description.key,
             self._attr_unique_id,
         )
-        value: Value | None = self.coordinator.data.get(self.entity_description.key)
+        value: Value | None = self.coordinator.data.get(self._data_key)
         if value is None:
             _LOGGER.debug(
                 "native_value for %s (%s) returned None",
