@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .const import ETA_BINARY_SENSOR_VALUES_DE, ETA_SENSOR_UNITS, ETA_STRING_SENSOR_VALUES_DE, EtaSensorType
+from .const import ETA_BINARY_SENSOR_VALUES_DE, ETA_STRING_SENSOR_VALUES_DE, EtaSensorType
 
 if TYPE_CHECKING:
     from .api import Object, Value
@@ -12,8 +12,7 @@ if TYPE_CHECKING:
 
 def determine_sensor_type(value: Value) -> EtaSensorType | None:
     """Determine the sensor type based on the value's unit and string representation."""
-    sensor_unit = value.unit
-    if sensor_unit in ETA_SENSOR_UNITS:
+    if value.unit:
         return EtaSensorType.SENSOR
     if value.value in ETA_BINARY_SENSOR_VALUES_DE:
         return EtaSensorType.BINARY_SENSOR

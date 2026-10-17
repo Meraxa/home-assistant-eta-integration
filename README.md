@@ -14,6 +14,14 @@ This integration is enabling you to fetch data from it such as temperatures, pow
 To use the functionality, you have to enable the api endpoint.
 Take a look in the [api documentation](ETA-RESTful-v1.2.pdf) for more information about enabling and the individual options the api provides.
 
+## Cockpit
+
+After a restart the sidebar shows **ETA** (`/eta-cockpit`). It is a monitoring and manual-control panel, not a heating controller.
+
+The tabs follow the ETA menu that this installation actually exposes: Live, boiler, buffer, heating circuit, domestic hot water, pellet store, and plant (outdoor temperature, faults, anything else). Rooms inside a tab are the next menu level. A click on a numeric reading opens the last 24 hours from the recorder. Switches write straight to the ETA; switching the boiler, the fresh-water module, the heating circuit, or the screed program asks first.
+
+Renamed entities keep working. Disabled data points are listed at the top and left out of the rooms. The panel is visible to every user; hide it under the profile sidebar editor.
+
 ## How to configure the integration
 
 The configuration of the integration consists of two steps and some preparation work.

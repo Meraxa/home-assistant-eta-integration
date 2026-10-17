@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## v0.5.0 – Variable sets, varinfo switches, active errors
+
+### Bulk polling via `/user/vars`
+- Coordinator creates a per-entry variable set and reads all chosen values in one request
+- Set is recreated after ETA reboot; falls back to individual fetches if bulk fails
+
+### Writable detection via `/user/varinfo`
+- On/off endpoints use `isWritable` to become switches vs binary sensors
+- New `binary_sensor` platform for read-only on/off values
+- Config/options flow stores `chosen_binary_sensors`
+
+### Active errors via `/user/errors`
+- Diagnostic sensor `Active errors` with count and message attributes
+
+## v0.4.3 – Upstream sync and robustness fixes
+
+### Sync
+- Merged Meraxa `#92` (`2000` → `Ausgeschaltet`) and dependency bumps (`pydantic-xml` 2.20, ruff 0.15.11, hassfest action)
+- Included URI-based coordinator keys from open Meraxa PR `#120` (duplicate menu names)
+
+### Robustness
+- Config flow no longer crashes with "Unknown error" when the ETA is offline; shows `url_broken` and keeps the typed host
+- Removed `0.0.0.0` default host; step errors no longer leak into later wizard steps
+- Values with any unit (e.g. `%`, `min`, `h`) become numeric sensors; `%rH` mapped to `%`
+- Switch commands raise `HomeAssistantError` on ETA `<error>` or network failure
+- Coordinator raises `UpdateFailed` when every fetch fails (entities become unavailable)
+- Deselected switches stay as read-only sensors; confirmed switches stored as `chosen_switches`
+
 ## v0.4.2 – Fix duplicate menu names overwriting entity values
 
 ETA exposes inactive twin endpoints that share the same menu path/`full_name`

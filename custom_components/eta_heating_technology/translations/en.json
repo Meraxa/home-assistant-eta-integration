@@ -21,7 +21,7 @@
                 }
             },
             "confirm_switches": {
-                "description": "The following entities were detected as switches (on/off). Deselect any you don't want as switches.",
+                "description": "The following entities are writable on/off endpoints according to ETA. Deselected entries become binary sensors (read-only).",
                 "data": {
                     "chosen_switches": "Switches"
                 }
@@ -52,7 +52,7 @@
                 }
             },
             "confirm_switches": {
-                "description": "The following entities were detected as switches (on/off). Deselect any you don't want as switches.",
+                "description": "The following entities are writable on/off endpoints according to ETA. Deselected entries become binary sensors (read-only).",
                 "data": {
                     "chosen_switches": "Switches"
                 }

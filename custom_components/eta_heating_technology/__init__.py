@@ -11,6 +11,7 @@ import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -19,6 +20,8 @@ from .api import EtaApiClient
 from .const import CONF_HOST, CONF_PORT, DEVICE_NAME, DOMAIN, LOGGER, NAME
 from .coordinator import EtaDataUpdateCoordinator
 from .data import EtaData
+from .frontend import async_setup_frontend
+from .panel import async_register_panel, async_unregister_panel
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -27,7 +30,7 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR, Platform.SWITCH]
 
 
 # https://developers.home-assistant.io/docs/config_entries_index/#setting-up-an-entry
@@ -70,6 +73,9 @@ async def async_setup_entry(
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
     config_entry.async_on_unload(config_entry.add_update_listener(async_reload_entry))
 
+    await async_setup_frontend(hass)
+    await async_register_panel(hass)
+
     return True
 
 
@@ -81,6 +87,13 @@ async def async_unload_entry(
     unload_ok = await hass.config_entries.async_unload_platforms(config_entry, PLATFORMS)
     if unload_ok:
         _LOGGER.info("Unloading of config entry %s successful.", config_entry.entry_id)
+        others = [
+            entry
+            for entry in hass.config_entries.async_entries(DOMAIN)
+            if entry.entry_id != config_entry.entry_id and entry.state is ConfigEntryState.LOADED
+        ]
+        if not others:
+            async_unregister_panel(hass)
 
     return unload_ok
 

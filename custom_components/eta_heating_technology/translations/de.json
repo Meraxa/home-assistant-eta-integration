@@ -21,7 +21,7 @@
                 }
             },
             "confirm_switches": {
-                "description": "Die folgenden Entitäten wurden als Schalter (Ein/Aus) erkannt. Entfernen Sie die, die Sie nicht als Schalter verwenden möchten.",
+                "description": "Die folgenden Entitäten sind laut ETA schreibbar (Ein/Aus). Abgewählte Einträge werden als Binary-Sensor (nur Anzeige) angelegt.",
                 "data": {
                     "chosen_switches": "Schalter"
                 }
@@ -52,7 +52,7 @@
                 }
             },
             "confirm_switches": {
-                "description": "Die folgenden Entitäten wurden als Schalter (Ein/Aus) erkannt. Entfernen Sie die, die Sie nicht als Schalter verwenden möchten.",
+                "description": "Die folgenden Entitäten sind laut ETA schreibbar (Ein/Aus). Abgewählte Einträge werden als Binary-Sensor (nur Anzeige) angelegt.",
                 "data": {
                     "chosen_switches": "Schalter"
                 }
