@@ -4,12 +4,14 @@ import enum
 from logging import Logger, getLogger
 
 from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.const import PERCENTAGE
 
 LOGGER: Logger = getLogger(__package__)
 
 NAME = "ETA Heating Technology"
 DEVICE_NAME = "ETA Heating"
 DOMAIN = "eta_heating_technology"
+VERSION = "0.5.0"
 ISSUE_URL = "https://github.com/Meraxa/home-assistant-eta-integration/issues"
 
 # Configuration and options
@@ -17,6 +19,8 @@ CONF_HOST = "host"
 CONF_PORT = "port"
 
 CHOSEN_ENTITIES = "chosen_entities"
+CHOSEN_SWITCHES = "chosen_switches"
+CHOSEN_BINARY_SENSORS = "chosen_binary_sensors"
 
 ETA_SENSOR_UNITS = {
     "°C": SensorDeviceClass.TEMPERATURE,
@@ -34,6 +38,11 @@ ETA_SENSOR_UNITS = {
     "s": SensorDeviceClass.DURATION,
     "%rH": SensorDeviceClass.HUMIDITY,
     "m³/h": SensorDeviceClass.VOLUME_FLOW_RATE,
+}
+
+# ETA units that Home Assistant expects in a different notation
+ETA_UNIT_MAPPING = {
+    "%rH": PERCENTAGE,
 }
 
 
