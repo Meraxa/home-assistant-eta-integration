@@ -5,6 +5,7 @@ __pycache__
 */build/*
 */dist/*
 .venv/
+panel-src/node_modules/
 
 
 # misc

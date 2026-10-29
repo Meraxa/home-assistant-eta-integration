@@ -6,15 +6,23 @@ import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
+from homeassistant.exceptions import HomeAssistantError
 
-from .api import Error, Success, Value
+from .api import Error, EtaApiClientError, Value
 from .const import (
+    CHOSEN_BINARY_SENSORS,
+    CHOSEN_SWITCHES,
     ETA_BINARY_SENSOR_VALUES_DE,
     EtaSensorType,
     EtaSwitchStates,
 )
 from .entity import EtaEntity
-from .utils import determine_sensor_type
+from .utils import (
+    determine_sensor_type,
+    entity_data_key,
+    entity_display_name,
+    entity_unique_key,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,22 +49,35 @@ async def async_setup_entry(
     chosen_objects = coordinator.chosen_objects
     _LOGGER.debug("switch_keys: %s", chosen_objects)
 
+    # None for entries created before switches were stored explicitly
+    switch_names: list[str] | None = config_entry.data.get(CHOSEN_SWITCHES)
+    binary_names: list[str] | None = config_entry.data.get(CHOSEN_BINARY_SENSORS)
+
     eta_switches: list[EtaSwitch] = []
     for obj in chosen_objects:
-        if coordinator.data and obj.full_name in coordinator.data:
-            value = coordinator.data[obj.full_name]
+        data_key = entity_data_key(obj)
+        if binary_names is not None and obj.full_name in binary_names:
+            continue
+        if switch_names is not None:
+            is_switch = obj.full_name in switch_names
         else:
-            value = await api_client.async_get_data(obj.uri)
-        sensor_type = determine_sensor_type(value)
+            value = coordinator.data.get(data_key) if coordinator.data else None
+            if value is None:
+                try:
+                    value = await api_client.async_get_data(obj.uri)
+                except EtaApiClientError as exception:
+                    _LOGGER.warning("Skipping %s, no value available yet: %s", obj.full_name, exception)
+                    continue
+            is_switch = determine_sensor_type(value) is EtaSensorType.BINARY_SENSOR
 
-        if sensor_type is EtaSensorType.BINARY_SENSOR:
+        if is_switch:
             eta_switches.append(
                 EtaSwitch(
                     coordinator=coordinator,
                     api_client=api_client,
                     entity_description=SwitchEntityDescription(
-                        key=obj.full_name,
-                        name=obj.full_name,
+                        key=entity_unique_key(obj, chosen_objects),
+                        name=entity_display_name(obj, chosen_objects),
                     ),
                     config_entry_id=config_entry.entry_id,
                     url=obj.uri,
@@ -88,15 +109,17 @@ class EtaSwitch(EtaEntity, SwitchEntity):
 
     async def _async_set_state(self, state: EtaSwitchStates, action: str) -> None:
         """Set the switch to the given state."""
-        self._attr_is_on = state == EtaSwitchStates.ON
-        self.async_write_ha_state()
-        response = await self.api_client.async_update_state(
-            url=self.url, value=state.value, headers={"Content-Type": "application/x-www-form-urlencoded"}
-        )
+        try:
+            response = await self.api_client.async_update_state(
+                url=self.url, value=state.value, headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+        except EtaApiClientError as exception:
+            msg = f"Failed to {action} {self.entity_description.key}: {exception}"
+            raise HomeAssistantError(msg) from exception
         if isinstance(response, Error):
-            _LOGGER.error("Failed to %s switch %s: %s", action, self._attr_unique_id, response.error_message)
-        if isinstance(response, Success):
-            _LOGGER.info("Successfully %s switch %s", action, self._attr_unique_id)
+            msg = f"Failed to {action} {self.entity_description.key}: {response.error_message}"
+            raise HomeAssistantError(msg)
+        _LOGGER.info("Successfully %s switch %s", action, self._attr_unique_id)
         await self.coordinator.async_request_refresh()
 
     async def async_turn_on(self) -> None:
@@ -115,8 +138,8 @@ class EtaSwitch(EtaEntity, SwitchEntity):
             self.entity_description.key,
             self._attr_unique_id,
         )
-        # Translate the value to a boolean
-        value: Value | None = self.coordinator.data.get(self.entity_description.key)
+        # Translate the value to a boolean (coordinator keys are URI-based)
+        value: Value | None = self.coordinator.data.get(self.url)
         if value is None:
             _LOGGER.warning(
                 "is_on for %s (%s) returned None",
