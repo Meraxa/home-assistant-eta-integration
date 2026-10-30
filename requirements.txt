@@ -1,6 +1,6 @@
 colorlog==6.11.0
 homeassistant==2025.2.4
-pip>=26.1.2
+pip>=26.2.2
 ruff==0.15.22
 pydantic-xml==2.21.0
 
